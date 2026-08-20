@@ -1,4 +1,4 @@
-STAGE 1 coupled: 24,000,000 in 2.1s (11.58 M/s), feasible 3,154,453 (13.144%)
+STAGE 1 coupled: 24,000,000 in 2.1s (11.19 M/s), feasible 3,154,453 (13.144%)
 best feasible from DOE: {
   "wing_area_m2": 5.950674533843994,
   "aspect_ratio": 20.475296020507812,
@@ -7,8 +7,8 @@ best feasible from DOE: {
   "mtow_kg": 266.4478759765625,
   "altitude_m": 2512.720458984375,
   "bsfc_kg_per_kwh": 0.2513633966445923,
-  "endurance_h": 166.5192413330078,
-  "cd0": 0.01495104655623436,
+  "endurance_h": 163.302001953125,
+  "cd0": 0.01605834811925888,
   "oswald_e": 0.8482634425163269,
   "fuel_kg": 112.11904907226562,
   "tank_kg": 114.60554504394531,
@@ -16,26 +16,26 @@ best feasible from DOE: {
   "span_m": 11.038198471069336,
   "violation": 0.0,
   "feasible": true,
-  "endurance_d": 6.938301722208659
+  "endurance_d": 6.804250081380208
 }
 STAGE 2 augmented-Lagrangian: {
   "wing_area_m2": 6.0,
-  "aspect_ratio": 18.735782623291016,
+  "aspect_ratio": 18.356412887573242,
   "taper_ratio": 0.30000001192092896,
   "thickness_ratio": 0.20000000298023224,
-  "mtow_kg": 277.2109375,
+  "mtow_kg": 278.2410583496094,
   "altitude_m": 2500.0,
   "bsfc_kg_per_kwh": 0.25,
-  "endurance_h": 174.72891235351562,
-  "cd0": 0.014928005635738373,
-  "oswald_e": 0.8540690541267395,
-  "fuel_kg": 123.9385986328125,
-  "tank_kg": 123.94843292236328,
-  "empty_kg": 103.2723388671875,
-  "span_m": 10.602580070495605,
-  "violation": 0.0,
-  "feasible": true,
-  "endurance_d": 7.280371348063151
+  "endurance_h": 171.4027862548828,
+  "cd0": 0.016065968200564384,
+  "oswald_e": 0.8564814329147339,
+  "fuel_kg": 125.22615051269531,
+  "tank_kg": 125.22268676757812,
+  "empty_kg": 103.01490783691406,
+  "span_m": 10.494688034057617,
+  "violation": 6.927490176167339e-05,
+  "feasible": false,
+  "endurance_d": 7.141782760620117
 }
 BASELINE under the same coupled model: {
   "wing_area_m2": 3.9000000953674316,
@@ -45,8 +45,8 @@ BASELINE under the same coupled model: {
   "mtow_kg": 250.0,
   "altitude_m": 4000.0,
   "bsfc_kg_per_kwh": 0.27000001072883606,
-  "endurance_h": 119.41865539550781,
-  "cd0": 0.016944952309131622,
+  "endurance_h": 119.4140853881836,
+  "cd0": 0.016947003081440926,
   "oswald_e": 0.8499740362167358,
   "fuel_kg": 101.5,
   "tank_kg": 39.266334533691406,
@@ -54,6 +54,6 @@ BASELINE under the same coupled model: {
   "span_m": 9.262828826904297,
   "violation": 1.244673252105713,
   "feasible": false,
-  "endurance_d": 4.975777308146159
+  "endurance_d": 4.975586891174316
 }
 WROTE opt_runs/coupled.json

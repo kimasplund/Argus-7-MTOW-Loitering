@@ -21,10 +21,21 @@ Two jobs, and the second one is the reason it exists.
    and 0.911 is not a propeller power coefficient. A conventional two- or
    three-blade propeller tops out near C_P = 0.25 (see
    ``PRACTICAL_CP_CEILING``), which for this disc at this rpm is about
-   4.66 kW. This model's own blade-element sweep agrees: the best it can
-   force through that disc is 6.4 kW, and even at an absurd pitch/D of 4.0
-   it reaches only 11.3 kW. Climb and takeoff do not close. The propeller,
-   not the engine, is the limit.
+   4.66 kW. This model's own blade-element sweep agrees, WITHIN THE
+   AIRFRAME'S SPEED ENVELOPE: the best it can force through that disc is
+   6.4 kW, and 11.3 kW even at an absurd pitch/D of 4.0. The strongest form
+   of the statement is the one that depends on no sweep bound at all -- at
+   V = 0, the takeoff condition, the disc absorbs at most 5.8 kW (3 blades,
+   pitch/D 4.0) and only 3.7 kW at a realistic pitch/D of 2.0.
+
+   HONEST CAVEAT (added in adversarial review): the blade-element model has
+   no intrinsic C_P ceiling. Freed of the V_MAX_ENVELOPE_MS cap it reaches
+   C_P 0.89 / 16.7 kW at pitch/D 4.0 and V = 80 m/s. That is 288 km/h on a
+   250 kg AR-22 loiterer, so it is not a condition this aircraft has, but it
+   means the agreement between PRACTICAL_CP_CEILING and the model's own best
+   C_P is a consequence of the sweep bounds, not an independent measurement
+   of a ceiling. Climb and takeoff do not close. The propeller, not the
+   engine, is the limit.
 
    Loiter does close, but less comfortably than the report implies, and
    ``loiter_propulsion_check`` is there because the answer was not the
@@ -129,10 +140,14 @@ SPEED_OF_SOUND_SEA_LEVEL = 340.29     # m/s, ISA sea level
 # generous on purpose, because it is being used to condemn a design and the
 # finding must survive the most favourable assumption available.
 #
-# ``max_power_absorbed`` measures the blade-element model's own ceiling for a
-# given disc and can be compared against this constant; the two agree to
-# within about a factor of two, which is the accuracy this claim needs (the
-# baseline is short by a factor of ~3.6 in power).
+# ``max_power_absorbed`` can be compared against this constant and reaches
+# C_P 0.343 for the baseline disc, i.e. within a factor of 1.4 of it. But
+# read that comparison carefully (adversarial review): it is the best C_P
+# inside the pitch/D <= 2.0 and V <= V_MAX_ENVELOPE_MS sweep, not a ceiling
+# the model discovers on its own. Widen the sweep to pitch/D 4.0 and 80 m/s
+# and the same model returns C_P 0.89. This constant is an engineering
+# judgement about real propellers; the blade-element model corroborates it
+# only over the range of blades and speeds that are real for this aircraft.
 PRACTICAL_CP_CEILING = 0.25
 
 # --- Blade section ----------------------------------------------------------
@@ -421,7 +436,14 @@ def activity_factor(blade: BladeGeometry) -> float:
     a real propeller and not an arbitrary shape.
     """
     x = np.linspace(blade.hub_r_over_R, 1.0, 400)
-    c_over_d = 0.5 * np.interp(x, DEFAULT_CHORD_TABLE_X, DEFAULT_CHORD_TABLE_C)
+    # ADVERSARIAL REVIEW FIX: this read DEFAULT_CHORD_TABLE_* instead of the
+    # blade it was handed, so it returned 95.0 for ANY blade -- including one
+    # with four times the chord -- and the test that calls it "the check that
+    # the assumed planform is a real propeller" could not fail. Use the
+    # blade's own planform. np.interp clamps outside the station range, which
+    # is the right behaviour for midpoint stations (they stop half a cell
+    # short of the hub and the tip).
+    c_over_d = 0.5 * np.interp(x, blade.r_over_R, blade.chord_over_R)
     return float(100000.0 / 16.0 * np.trapezoid(c_over_d * x ** 3, x))
 
 
@@ -562,11 +584,27 @@ def _bemt_core(*, r_over_R, chord_over_R, theta, blades, diameter, hub,
     wa = wt * np.tan(phi)
     w2 = wa ** 2 + wt ** 2
 
-    dr = (1.0 - hub) * radius / r_over_R.shape[-1]     # midpoint rule
+    # Quadrature width per station. ADVERSARIAL REVIEW FIX: this used to be
+    # the single value (1 - hub) * radius / n_sections, which is correct only
+    # when the stations really are the uniform midpoints constant_pitch_blade
+    # builds. BladeGeometry is public and hub_r_over_R has a default, so a
+    # hand-built blade whose stations did not start at that hub was integrated
+    # with the wrong dr and came out silently ~18% off. Deriving the widths
+    # from the stations themselves is exact for the uniform midpoint case
+    # (it reproduces (1 - hub)/n to round-off) and correct otherwise.
+    x = np.asarray(r_over_R, dtype=float)
+    if x.shape[-1] == 1:
+        dr = np.array([(1.0 - hub) * radius])
+    else:
+        edges = np.empty(x.shape[-1] + 1)
+        edges[1:-1] = 0.5 * (x[:-1] + x[1:])
+        edges[0] = x[0] - 0.5 * (x[1] - x[0])
+        edges[-1] = x[-1] + 0.5 * (x[-1] - x[-2])
+        dr = np.diff(edges) * radius
     dT = 0.5 * rho * w2 * blades * c * cn
     dQ = 0.5 * rho * w2 * blades * c * ct * r
-    thrust = np.sum(dT, axis=-1) * dr
-    torque = np.sum(dQ, axis=-1) * dr
+    thrust = np.sum(dT * dr, axis=-1)
+    torque = np.sum(dQ * dr, axis=-1)
     return thrust, torque, phi, cl, cd, F, re, np.all(found, axis=-1), mach
 
 
@@ -674,8 +712,14 @@ def max_power_absorbed(diameter: float, rpm: float, rho: float,
 
     The default ``pitch_over_d`` sweep stops at 2.0 because that is already
     the coarsest realistic blade. Widen it to stress-test the answer: the
-    ARGUS-7 baseline still falls short of 17 kW at pitch/D = 4.0, a blade
-    angle of 59 degrees at 0.75R that no propeller is built with.
+    ARGUS-7 baseline still falls short of 17 kW at pitch/D = 4.0 (11.3 kW), a
+    blade angle of 59 degrees at 0.75R that no propeller is built with.
+
+    Both bounds matter, and ``v_max_ms`` is the binding one. The optimum of
+    the default sweep sits exactly on pitch/D = 2.0 and near V_MAX_ENVELOPE_MS,
+    so this function returns the best power inside its box, not an intrinsic
+    ceiling. At pitch/D 4.0 the answer is 11.3 kW at v_max 49.8 m/s, 14.0 kW
+    at 60, 15.9 kW at 70 and 16.7 kW at 80. Quote it with its bounds.
     """
     best_w = -np.inf
     best: AbsorptionPoint | None = None
@@ -751,6 +795,14 @@ def loiter_propulsion_check(design_path: str | Path = DEFAULT_DESIGN,
         for pod in np.linspace(0.4, 2.6, 34):
             r = run_bemt(constant_pitch_blade(D, pod * D, blades=b),
                          rpm=rpm, v_ms=v, rho=rho)
+            # ADVERSARIAL REVIEW FIX: this loop used r.thrust_n without
+            # checking r.converged, so a section that failed to bracket a root
+            # could set two_blade_max_thrust_n or be selected as `best`. No
+            # point in the current sweep is non-converged (576/576 and 68/68
+            # measured), so this changes no number today -- it stops a future
+            # geometry change from producing a plausible-looking wrong answer.
+            if not r.converged:
+                continue
             if b == 2:
                 two_blade_max = max(two_blade_max, r.thrust_n)
             if r.thrust_n >= drag and (best is None or r.power_w < best[0].power_w):

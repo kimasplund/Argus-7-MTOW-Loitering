@@ -56,6 +56,27 @@ def wetted_area_m2(wing_area_m2, thickness_ratio):
     return wing_wet + SWET_NONWING
 
 
+# Wing profile-drag penalty for thickening the section, MEASURED with NeuralFoil
+# on the actual FX 63-137 coordinates scaled about their camber line, Re 1.0e6:
+#   t/c   0.137  0.150  0.170  0.190  0.200
+#   C_D   1.000  1.028  1.080  1.132  1.158  (relative)
+# i.e. multiplier ~ 1 + 2.5*(t/c - 0.137), linear to within 0.5% across the range.
+#
+# A pure wetted-area model captures only +6.5% of the +15.8% real penalty at
+# t/c 0.20, so without this the optimiser buys thickness -- and with it fuel
+# volume and spar depth -- at roughly 40% of its true drag cost. This is the same
+# class of unpriced lunch that C_D0-as-a-free-variable and Raymer's e were.
+TC_REF = 0.137
+TC_DRAG_SLOPE = 2.5
+WING_FRACTION_OF_CD0 = 0.484  # from the build-up at the baseline
+
+
+def thickness_drag_multiplier(thickness_ratio):
+    """Applied to the WING share of C_D0 only; the rest does not care about t/c."""
+    wing_mult = 1.0 + TC_DRAG_SLOPE * (thickness_ratio - TC_REF)
+    return 1.0 + WING_FRACTION_OF_CD0 * (wing_mult - 1.0)
+
+
 def cd0_from_geometry(wing_area_m2, thickness_ratio, cleanliness=1.0):
     """C_D0 as a consequence of geometry, not a free variable.
 
@@ -64,7 +85,8 @@ def cd0_from_geometry(wing_area_m2, thickness_ratio, cleanliness=1.0):
     only remaining discretionary factor.
     """
     swet = wetted_area_m2(wing_area_m2, thickness_ratio)
-    return CFE * swet / wing_area_m2 * cleanliness
+    base = CFE * swet / wing_area_m2 * cleanliness
+    return base * thickness_drag_multiplier(thickness_ratio)
 
 
 # --- span efficiency, MEASURED with AVL across the planform family ---------

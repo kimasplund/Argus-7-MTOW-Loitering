@@ -42,6 +42,7 @@ from argus7.design.schema import load_design
 from argus7.prop.bemt import (
     PRACTICAL_CP_CEILING,
     RHO_SEA_LEVEL,
+    V_MAX_ENVELOPE_MS,
     BEMTResult,
     BladeGeometry,
     PropulsionClosure,
@@ -254,6 +255,28 @@ def test_assumed_blade_planform_is_a_realistic_propeller(demo_blade):
     assert 80.0 < af < 120.0, f"assumed planform has AF={af:.1f}, not a real prop"
 
 
+def test_activity_factor_actually_reads_the_blade_it_is_given(demo_blade):
+    """Regression guard, adversarial review.
+
+    activity_factor() used to integrate the module-level DEFAULT_CHORD_TABLE
+    rather than blade.chord_over_R, so it returned 95.0 for every blade --
+    including one with four times the chord -- and the test above could not
+    fail for any reason other than someone editing the default table. AF is
+    linear in chord, so scaling the planform must scale AF.
+    """
+    from argus7.prop.bemt import BladeGeometry
+
+    af1 = activity_factor(demo_blade)
+    for factor in (0.25, 2.0, 4.0):
+        scaled = BladeGeometry(
+            diameter_m=demo_blade.diameter_m, blades=demo_blade.blades,
+            r_over_R=demo_blade.r_over_R,
+            chord_over_R=demo_blade.chord_over_R * factor,
+            twist_rad=demo_blade.twist_rad,
+            hub_r_over_R=demo_blade.hub_r_over_R)
+        assert activity_factor(scaled) == pytest.approx(factor * af1, rel=1e-9)
+
+
 # --- 3. The baseline propulsion finding --------------------------------------
 
 def test_required_cp_for_the_report_baseline_is_0_911(baseline_prop):
@@ -298,10 +321,17 @@ def test_finding_survives_an_absurdly_generous_sweep(baseline_prop):
     """Stress-test: even at pitch/D = 4.0 the baseline disc falls short.
 
     pitch/D = 4.0 is a blade angle of 59 degrees at 0.75R. No propeller is
-    built like that, and the aircraft cannot fly at the top of the speed
-    sweep either. The point is that the finding is not an artefact of where
-    the default sweep was cut off: nothing inside or outside the realistic
-    envelope gets this disc to 17 kW.
+    built like that. The point is that the pitch bound of the default sweep
+    is not what produces the finding.
+
+    ADVERSARIAL REVIEW correction: the *speed* bound is the binding one, and
+    an earlier version of this docstring wrongly claimed that "nothing inside
+    or outside the realistic envelope gets this disc to 17 kW". Freed of
+    V_MAX_ENVELOPE_MS the same model reaches 16.7 kW at pitch/D 4.0 and
+    V = 80 m/s (C_P 0.89). 80 m/s is 288 km/h, more than double the top of
+    this aircraft's loiter TAS band, so it is not a condition ARGUS-7 has --
+    but the claim has to be made with its bound attached, and the
+    bound-independent form of the finding lives in the static test below.
     """
     D, rpm, p_kw = baseline_prop
     best_w, best = max_power_absorbed(
@@ -309,6 +339,39 @@ def test_finding_survives_an_absurdly_generous_sweep(baseline_prop):
     assert best_w < p_kw * 1000.0, (
         f"even at pitch/D {best.pitch_over_d:.1f} with {best.blades} blades "
         f"the disc reaches only {best_w/1000:.2f} kW (C_P {best.cp:.3f})"
+    )
+    # Which bound is doing the work: the pitch optimum is INTERIOR to the
+    # widened sweep (~3.75, so more pitch would not help), while the speed
+    # optimum sits exactly ON V_MAX_ENVELOPE_MS. The speed envelope is the
+    # only thing standing between this disc and 17 kW, so nobody should read
+    # 11.3 kW as an intrinsic ceiling of the model.
+    assert best.pitch_over_d < 4.0
+    assert best.v_ms == pytest.approx(V_MAX_ENVELOPE_MS, rel=1e-9)
+
+
+def test_takeoff_absorption_is_short_regardless_of_any_sweep_bound(baseline_prop):
+    """The form of the finding that depends on NO advance-ratio bound at all.
+
+    At V = 0 there is no speed to sweep and no advance ratio to argue about:
+    the disc either takes the power at the brake or it does not. It does not.
+    Even at an unbuildable pitch/D of 4.0 on three blades it absorbs under
+    6 kW against 17 kW rated, and at a realistic pitch/D of 2.0 under 4 kW.
+    Takeoff is where the propulsion set fails hardest and least arguably.
+    """
+    D, rpm, p_kw = baseline_prop
+    rated_w = p_kw * 1000.0
+    worst_case = max(
+        power_absorbed(D, rpm, RHO_SEA_LEVEL, pod * D, v_ms=0.0, blades=b)
+        for b in (2, 3) for pod in (1.0, 2.0, 3.0, 4.0))
+    assert worst_case < 0.45 * rated_w, (
+        f"static absorption reaches {worst_case/1000:.2f} kW against "
+        f"{p_kw:.1f} kW rated"
+    )
+    realistic = power_absorbed(D, rpm, RHO_SEA_LEVEL, 2.0 * D, v_ms=0.0,
+                               blades=3)
+    assert realistic < 0.30 * rated_w, (
+        f"3-blade pitch/D 2.0 static absorption = {realistic/1000:.2f} kW "
+        f"against {p_kw:.1f} kW rated"
     )
 
 
@@ -358,6 +421,25 @@ def test_loiter_holds_but_only_on_three_coarse_blades(design):
     # ...and it is still comfortably inside the rated engine power. Loiter is
     # not what fails.
     assert lc.shaft_power_w < design.propulsion.power_max_kw * 1000.0
+
+    # PLANFORM-INDEPENDENT FORM OF THE SAME FINDING (adversarial review).
+    # Everything above depends on the assumed chord table. This does not: the
+    # actuator-disc (Froude) limit for the disc as drawn caps propulsive
+    # efficiency at V/(V+vi), so there is a floor on loiter shaft power that
+    # NO blade design can get under. The report's ~3.4 kW is below that
+    # floor -- it is not optimistic, it is impossible.
+    area = math.pi * design.propulsion.prop_diameter_m ** 2 / 4.0
+    vi = 0.5 * (-lc.v_ms + math.sqrt(lc.v_ms ** 2
+                                     + 2.0 * lc.drag_n / (RHO_4000M * area)))
+    eta_ideal = lc.v_ms / (lc.v_ms + vi)
+    p_floor = lc.useful_power_w / eta_ideal
+    assert eta_ideal < 0.95, f"ideal propulsive efficiency is {eta_ideal:.3f}"
+    assert p_floor > 3400.0, (
+        f"actuator-disc floor on loiter shaft power is {p_floor:.0f} W; the "
+        f"report's 3.4 kW would need eta = {lc.useful_power_w/3400.0:.3f} "
+        f"against an ideal maximum of {eta_ideal:.3f}"
+    )
+    assert lc.shaft_power_w > p_floor
 
 
 def test_close_propulsion_diameter_near_1_05_m():
