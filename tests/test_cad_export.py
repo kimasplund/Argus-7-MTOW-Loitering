@@ -191,3 +191,32 @@ def test_openscad_fuselage_nose_does_not_overshoot(rendered_openscad_stl):
     ~1 mm of the true station."""
     x_min = rendered_openscad_stl.bounds[0][0]
     assert x_min == pytest.approx(0.0, abs=0.01)
+
+
+# --- FINAL REVIEW C1, end to end -------------------------------------------
+
+def test_exported_analysis_mesh_is_one_connected_body(design, tmp_path):
+    """The C1 assertion carried all the way to the artifact Phase 2 actually
+    consumes. `trimesh.is_watertight` (test_stl_is_watertight above) is a
+    per-edge manifold test: four separate closed shells pass it, which is why
+    the four-disconnected-bodies defect survived every previous check. Split
+    the mesh into connected components instead and count them.
+
+    include_items=True keeps the illustrative prop disc, which genuinely
+    floats 50 mm aft of the fuselage -- two components. include_items=False
+    is the analysis solid and must be exactly one."""
+    paths = export_model(design, tmp_path, include_items=False)
+    m = trimesh.load(paths["stl"])
+    parts = m.split(only_watertight=False)
+    assert len(parts) == 1, (
+        f"analysis STL is {len(parts)} disconnected shells, not one")
+    assert m.is_watertight, "analysis STL is not watertight without repair"
+
+
+def test_default_export_has_only_the_prop_disc_free(exported):
+    """Pin the committed deliverable's component count so a NEW floating body
+    cannot be introduced unnoticed behind a passing is_watertight."""
+    parts = trimesh.load(exported["stl"]).split(only_watertight=False)
+    assert len(parts) == 2, (
+        f"{len(parts)} disconnected shells in the default export; expected 2 "
+        "(airframe + illustrative prop disc)")

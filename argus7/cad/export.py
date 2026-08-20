@@ -27,17 +27,25 @@ def _clean_stl_in_place(stl_path: Path) -> None:
     m.export(str(stl_path))
 
 
-def export_model(design, outdir: str | Path) -> dict[str, Path]:
+def export_model(design, outdir: str | Path,
+                 include_items: bool = True) -> dict[str, Path]:
     """Build the aircraft and write it out as STEP and STL.
 
     All numeric values flowing through argus7.cad.model are plain SI metres
     (per the project's axis/units convention), so the STEP export is tagged
     unit=Unit.M -- otherwise build123d's default (millimetre) tag would make
     a downstream STEP consumer read a 3.4 m fuselage as 3.4 mm.
+
+    include_items is passed straight through to build_aircraft. The default
+    True keeps the illustrative gimbal/chute/antenna/prop in the committed
+    deliverable; False writes the STRUCTURE alone, which is a single
+    connected body (final review, finding C1) and therefore needs no
+    post-hoc mesh repair -- the sliver faces _clean_stl_in_place exists for
+    are all at the installed items' boolean-fuse seams.
     """
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
-    ac = build_aircraft(design)
+    ac = build_aircraft(design, include_items=include_items)
     step, stl = outdir / "argus7.step", outdir / "argus7.stl"
     export_step(ac, str(step), unit=Unit.M)
     export_stl(ac, str(stl), tolerance=1e-3, angular_tolerance=0.1)
