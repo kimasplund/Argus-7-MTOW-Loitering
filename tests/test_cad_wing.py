@@ -68,7 +68,11 @@ def test_wing_planform_area_matches_spec(wing, design):
 
 def test_wing_solid_is_valid(wing):
     # RULING P12: is_valid is a PROPERTY in build123d 0.11.1, not a method.
-    assert wing.is_valid
+    # FINAL REVIEW I6a: assert `is True`, not just truthiness. If a future
+    # build123d returns is_valid to being a method, `assert wing.is_valid`
+    # asserts a bound method object -- always truthy -- and this guard dies
+    # silently instead of failing.
+    assert wing.is_valid is True
     assert wing.volume > 0
 
 def test_stations_apply_linear_taper_and_washout(design):

@@ -33,9 +33,22 @@ def tail_volume_h(design) -> float:
 
 
 def wing_le_x(design) -> float:
-    """Fuselage-station x of the wing root leading edge (22% of fuselage
-    length -- the same placement build_aircraft uses)."""
-    return 0.22 * design.fuselage.length_m
+    """Fuselage-station x of the wing root leading edge -- the same placement
+    build_aircraft uses.
+
+    FINAL REVIEW I4: the fraction was a bare 0.22 typed here. The Task-4
+    sweep promoted three constants and declared the hardcoded-geometry class
+    closed; it missed this one, which is more load-bearing than any of the
+    three, because wing_ac_x, tail_qc_x, all of derive_booms and the tail
+    placement are all measured from it.
+
+    COINCIDENCE, NOT A COUPLING: design.fuselage.stations also contains a
+    0.22 entry (the max-diameter station). Nothing on record says these were
+    ever meant to be the same station -- they are two independent assumptions
+    that happen to share a value today, and they are deliberately left
+    uncoupled.
+    """
+    return design.wing.x_le_frac * design.fuselage.length_m
 
 
 def wing_ac_x(design) -> float:
@@ -58,6 +71,53 @@ def tail_qc_x(design) -> float:
     end of the booms, carried by nothing.
     """
     return wing_ac_x(design) + design.tail.arm_m
+
+
+@dataclass(frozen=True)
+class TailPanelGeometry:
+    """One panel of the inverted-V tail, plus the station it is placed at."""
+    panel_area_m2: float        # true area of ONE panel, not the projection
+    panel_span_m: float         # length along the panel, root to tip
+    c_root_m: float
+    c_tip_m: float
+    mac_m: float
+    x_le_m: float               # unswept: leading-edge x, constant across span
+    dihedral_rad: float         # negative = inverted V
+    y_tip_offset_m: float       # tip offset outboard of the boom
+    z_tip_offset_m: float       # tip offset below the boom (negative)
+
+
+def derive_tail_panel(design) -> TailPanelGeometry:
+    """Inverted-V tail panel geometry, derived once for every consumer.
+
+    FINAL REVIEW I5: argus7.cad.model.build_tail and
+    argus7.cad.to_openscad.emit_openscad each computed panel_area,
+    panel_span, c_root, mac and x_le independently, from the same inputs,
+    kept in step only by a comment. They agreed; nothing enforced it. The
+    wing never had this problem because both paths share section_stations --
+    the tail did, because ruling P17 added tail emission after the maths was
+    already written.
+
+    design.tail.area_h_m2 is the PROJECTED horizontal area, so each of the
+    two panels has true area S_h / (2 cos^2 gamma). The panels are unswept:
+    design.tail declares no sweep angle, so the leading-edge x is constant
+    across the span, and the panel's own quarter-MAC lands on tail_qc_x
+    (RULING P2).
+    """
+    gam = math.radians(design.tail.dihedral_deg)          # negative = inverted
+    lam = design.tail.taper_ratio
+    panel_area = design.tail.area_h_m2 / (2.0 * math.cos(gam) ** 2)
+    panel_span = math.sqrt(panel_area * design.tail.panel_aspect_ratio)
+    c_root = 2 * panel_area / (panel_span * (1 + lam))
+    c_tip = c_root * lam
+    mac = (2.0 / 3.0) * c_root * (1.0 + lam + lam ** 2) / (1.0 + lam)
+    x_le = tail_qc_x(design) - 0.25 * mac
+    return TailPanelGeometry(
+        panel_area_m2=panel_area, panel_span_m=panel_span,
+        c_root_m=c_root, c_tip_m=c_tip, mac_m=mac, x_le_m=x_le,
+        dihedral_rad=gam,
+        y_tip_offset_m=panel_span * math.cos(gam),
+        z_tip_offset_m=panel_span * math.sin(gam))
 
 
 @dataclass(frozen=True)

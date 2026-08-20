@@ -13,6 +13,10 @@ class Wing(BaseModel):
     sweep_le_deg: float
     thickness_ratio: float = Field(gt=0, lt=0.5)
     incidence_deg: float
+    # Fraction of fuselage length at which the wing root leading edge sits.
+    # Promoted out of argus7.design.geometry.wing_le_x's bare
+    # `0.22 * design.fuselage.length_m` (final review, finding I4).
+    x_le_frac: float = Field(gt=0, lt=1)
     # Vertical offset of the wing root leading edge above the fuselage
     # centreline / boom axis (z = 0). Promoted out of the bare 0.05 that was
     # typed into argus7.cad.model.build_aircraft AND, a second time, into

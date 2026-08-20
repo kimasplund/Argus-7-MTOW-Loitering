@@ -137,7 +137,11 @@ def test_full_aircraft_is_valid_and_within_envelope(design):
     ac = build_aircraft(design)
     g = derive_wing(design.wing)
     bb = ac.bounding_box()
-    assert ac.is_valid  # RULING P12: is_valid is a property, not a method.
+    # RULING P12: is_valid is a property, not a method. FINAL REVIEW I6a:
+    # `is True` rather than bare truthiness -- if a future build123d makes it
+    # a method again, the bare form asserts a bound method object (always
+    # truthy) and the guard dies silently.
+    assert ac.is_valid is True
     assert (bb.max.Y - bb.min.Y) == pytest.approx(g.span_m, rel=0.03)
     assert (bb.max.X - bb.min.X) < 1.5 * design.fuselage.length_m + design.tail.arm_m
 
@@ -253,3 +257,81 @@ def test_installed_items_add_exactly_one_free_body(design):
     assert len(ac.solids()) == 2, (
         f"{len(ac.solids())} bodies with items included; expected 2 "
         "(airframe + free prop disc)")
+
+
+# --- FINAL REVIEW I4: the wing's longitudinal station is a design field ----
+# The Task-4 sweep promoted three constants and declared the class closed. It
+# was wrong: `return 0.22 * design.fuselage.length_m` survived in
+# argus7/design/geometry.py::wing_le_x, and it is more load-bearing than any
+# of the three that were promoted -- it fixes the wing station and through it
+# wing_ac_x, tail_qc_x, the whole of derive_booms, and the tail placement.
+
+def test_wing_x_station_is_a_design_field_not_a_python_literal(design):
+    """Perturbing wing.x_le_frac must move the wing station and everything
+    derived from it by exactly the same amount. A surviving 0.22 literal
+    anywhere in that chain shows up as a term that fails to move."""
+    from argus7.design.geometry import derive_booms as _db
+    L = design.fuselage.length_m
+    assert design.wing.x_le_frac == pytest.approx(0.22)
+    assert wing_le_x(design) == pytest.approx(design.wing.x_le_frac * L, rel=1e-12)
+
+    moved = design.model_copy(deep=True)
+    moved.wing.x_le_frac = 0.30
+    shift = (0.30 - 0.22) * L
+    assert wing_le_x(moved) - wing_le_x(design) == pytest.approx(shift, rel=1e-9)
+    assert wing_ac_x(moved) - wing_ac_x(design) == pytest.approx(shift, rel=1e-9)
+    assert tail_qc_x(moved) - tail_qc_x(design) == pytest.approx(shift, rel=1e-9)
+    assert _db(moved).x_fwd - _db(design).x_fwd == pytest.approx(shift, rel=1e-9)
+    assert _db(moved).x_aft - _db(design).x_aft == pytest.approx(shift, rel=1e-9)
+    assert _db(moved).length_m == pytest.approx(_db(design).length_m, rel=1e-9)
+
+
+# --- FINAL REVIEW I5: the tail panel is derived ONCE ------------------------
+# argus7/cad/model.py::build_tail and argus7/cad/to_openscad.py::emit_openscad
+# independently computed panel_area, panel_span, c_root, mac and x_le from the
+# same inputs, kept in step only by a comment ("mirrored from
+# argus7.cad.model.build_tail"). They agreed, but nothing enforced it. The
+# wing avoided this by sharing section_stations; the tail did not, because
+# ruling P17 added tail emission after the maths had already been written.
+
+def test_tail_panel_geometry_is_derived_once_and_shared(design, tmp_path):
+    """Both emitters must consume argus7.design.geometry.derive_tail_panel.
+    Checked through their OUTPUTS -- the emitted .scad text and the built
+    B-rep solid -- so a re-inlined second derivation that drifts by any
+    amount is caught, not just one that looks different in the source."""
+    from argus7.design.geometry import derive_tail_panel
+    from argus7.cad.to_openscad import emit_openscad
+    tp = derive_tail_panel(design)
+
+    text = emit_openscad(design, tmp_path / "m.scad").read_text()
+    assert f"tail_section({tp.c_root_m:.5f}, 0, {tp.x_le_m:.5f}," in text
+    assert f"tail_section({tp.c_tip_m:.5f}, 0, {tp.x_le_m:.5f}," in text
+
+    bb = build_tail(design).bounding_box()
+    # panels are unswept, so the LE x is constant and the x-extent is c_root
+    assert bb.min.X == pytest.approx(tp.x_le_m, abs=1e-6)
+    assert bb.max.X - bb.min.X == pytest.approx(tp.c_root_m, abs=1e-6)
+    # span and anhedral: the tip sits panel_span outboard along the dihedral.
+    # The solid's lowest point is the tip section's lower surface, half a
+    # section thickness below the tip chord line -- measured from the airfoil
+    # data rather than assumed, so this does not hardcode NACA0010's 10%.
+    from argus7.cad.airfoil_coords import max_thickness
+    from argus7.cad.model import _section_coords
+    y_boom = derive_booms(design).y_station_m
+    half_t = 0.5 * max_thickness(_section_coords(design.tail.airfoil)) * tp.c_tip_m
+    assert bb.max.Y == pytest.approx(y_boom + tp.y_tip_offset_m, abs=1e-6)
+    assert bb.min.Z == pytest.approx(tp.z_tip_offset_m - half_t, abs=1e-3)
+
+
+def test_tail_panel_area_accounts_for_anhedral(design):
+    """area_h_m2 is the PROJECTED horizontal area, so each of the two panels
+    has true area S_h / (2 cos^2 gamma). Pin the relationship, not the
+    number, so it survives a change of tail dihedral."""
+    import math
+    from argus7.design.geometry import derive_tail_panel
+    tp = derive_tail_panel(design)
+    assert tp.panel_area_m2 * 2 * math.cos(tp.dihedral_rad) ** 2 == pytest.approx(
+        design.tail.area_h_m2, rel=1e-12)
+    assert tp.panel_span_m ** 2 / tp.panel_area_m2 == pytest.approx(
+        design.tail.panel_aspect_ratio, rel=1e-12)
+    assert tp.c_tip_m / tp.c_root_m == pytest.approx(design.tail.taper_ratio, rel=1e-12)

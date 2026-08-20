@@ -43,6 +43,18 @@ wing:
   sweep_le_deg: 1.0
   thickness_ratio: 0.137
   incidence_deg: 2.0
+  # Fraction of fuselage length at which the wing ROOT LEADING EDGE sits.
+  # FINAL REVIEW I4: this was `return 0.22 * design.fuselage.length_m` inside
+  # argus7.design.geometry.wing_le_x -- the single most load-bearing literal
+  # left in the codebase after the Task-4 sweep, since it fixes the wing
+  # station and through it wing_ac_x, tail_qc_x, the whole of derive_booms
+  # and the tail placement.
+  # COINCIDENCE, NOT A COUPLING: fuselage.stations also contains a 0.22 entry
+  # -- the max-diameter station. Nothing on record says these were ever meant
+  # to be the same station; they are two independent assumptions that happen
+  # to share a value today. They are deliberately left uncoupled, and no test
+  # asserts they are equal (that would BE the coupling).
+  x_le_frac: 0.22
   # Vertical offset of the wing root leading edge above the fuselage
   # centreline (z = 0, which is also the boom axis). FINAL REVIEW C1: this
   # was a bare 0.05 typed into argus7.cad.model.build_aircraft and a second
@@ -89,6 +101,7 @@ provenance:
   wing.dihedral_deg: assumption
   wing.sweep_le_deg: assumption
   wing.incidence_deg: assumption
+  wing.x_le_frac: assumption
   wing.z_offset_m: assumption
   fuselage.length_m: assumption
   fuselage.max_diameter_m: assumption

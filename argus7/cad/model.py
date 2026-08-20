@@ -6,7 +6,9 @@ from build123d import (
     Cylinder, Sphere, Box, Location,
 )
 
-from argus7.design.geometry import derive_wing, derive_booms, wing_le_x, tail_qc_x
+from argus7.design.geometry import (
+    derive_wing, derive_booms, derive_tail_panel, wing_le_x,
+)
 from argus7.cad.airfoil_coords import load_airfoil, naca4, scale_airfoil
 
 
@@ -107,33 +109,28 @@ def build_tail(design) -> Part:
     quantity, and the tail is actually carried by the boom rather than
     floating past its aft end.
 
-    area_h_m2 is the projected horizontal area, so each panel's true area
-    is S_h / (2 cos^2(dihedral)). The panels are unswept: the leading edge
-    x is constant across the span, matching the fact that design.tail
-    declares no sweep angle.
+    FINAL REVIEW I5: the panel's own area/span/chord/MAC/station arithmetic
+    used to live here AND, independently, in argus7.cad.to_openscad, kept in
+    step only by a comment. Both now call
+    argus7.design.geometry.derive_tail_panel, which is where that arithmetic
+    (and its "area_h_m2 is the PROJECTED area" and "unswept" reasoning) is
+    documented.
 
     DESIGN NOTE (informational, not actionable here): with 42 deg anhedral
     the inverted-V tail tips sit well below the boom line, below the
     fuselage keel. Ground clearance on launch is a Phase-2 concern.
     """
     y_boom = derive_booms(design).y_station_m
-    gam = math.radians(design.tail.dihedral_deg)          # negative = inverted
-    panel_area = design.tail.area_h_m2 / (2.0 * math.cos(gam) ** 2)
-    lam = design.tail.taper_ratio
-    panel_span = math.sqrt(panel_area * design.tail.panel_aspect_ratio)
-    c_root = 2 * panel_area / (panel_span * (1 + lam))
-    mac = (2.0 / 3.0) * c_root * (1.0 + lam + lam ** 2) / (1.0 + lam)
-    x_le = tail_qc_x(design) - 0.25 * mac                 # unswept: LE constant across span
+    tp = derive_tail_panel(design)
     coords = _section_coords(design.tail.airfoil)
     parts = []
     for sgn in (+1, -1):
         faces = []
         for f in (0.0, 1.0):
-            chord = c_root * (1 + f * (lam - 1))
-            span_off = f * panel_span
-            y = sgn * (y_boom + span_off * math.cos(gam))
-            z = span_off * math.sin(gam)
-            pts = scale_airfoil(coords, chord, 0.0, (x_le, y, z))
+            chord = tp.c_root_m + f * (tp.c_tip_m - tp.c_root_m)
+            y = sgn * (y_boom + f * tp.y_tip_offset_m)
+            z = f * tp.z_tip_offset_m
+            pts = scale_airfoil(coords, chord, 0.0, (tp.x_le_m, y, z))
             verts = [Vector(*p) for p in pts]
             if (verts[0] - verts[-1]).length > 1e-9:
                 verts.append(verts[0])

@@ -1,7 +1,9 @@
 from __future__ import annotations
 import math
 from pathlib import Path
-from argus7.design.geometry import derive_wing, derive_booms, wing_le_x, tail_qc_x
+from argus7.design.geometry import (
+    derive_wing, derive_booms, derive_tail_panel, wing_le_x,
+)
 from argus7.cad.model import section_stations, _section_coords
 
 
@@ -34,17 +36,11 @@ def emit_openscad(design, path: str | Path) -> Path:
     wing_coords = _section_coords(design.wing.airfoil)
     tail_coords = _section_coords(design.tail.airfoil)
 
-    # ---- tail panel geometry, mirrored from argus7.cad.model.build_tail ----
-    gam = math.radians(design.tail.dihedral_deg)           # negative = inverted
-    lam = design.tail.taper_ratio
-    panel_area = design.tail.area_h_m2 / (2.0 * math.cos(gam) ** 2)
-    panel_span = math.sqrt(panel_area * design.tail.panel_aspect_ratio)
-    c_root_t = 2 * panel_area / (panel_span * (1 + lam))
-    c_tip_t = c_root_t * lam
-    mac_t = (2.0 / 3.0) * c_root_t * (1.0 + lam + lam ** 2) / (1.0 + lam)
-    x_le_t = tail_qc_x(design) - 0.25 * mac_t               # unswept: LE constant across span
-    y_tip_off = panel_span * math.cos(gam)
-    z_tip_off = panel_span * math.sin(gam)
+    # ---- tail panel geometry, SHARED with argus7.cad.model.build_tail ----
+    # FINAL REVIEW I5: this block used to re-derive panel_area, panel_span,
+    # c_root, mac and x_le itself, "mirrored from build_tail" by comment
+    # only. Both paths now read the one derivation.
+    tp = derive_tail_panel(design)
 
     lines = [
         "// ==== GENERATED FILE - DO NOT EDIT ====",
@@ -55,8 +51,8 @@ def emit_openscad(design, path: str | Path) -> Path:
         f"// S = {g.area_m2:.4f} m2 | AR = {g.aspect_ratio:.4f} | b = {g.span_m:.4f} m",
         f"// c_root = {g.chord_root_m:.4f} m | c_tip = {g.chord_tip_m:.4f} m "
         f"| MAC = {g.mac_m:.4f} m",
-        f"// tail: c_root = {c_root_t:.4f} m | c_tip = {c_tip_t:.4f} m "
-        f"| MAC = {mac_t:.4f} m",
+        f"// tail: c_root = {tp.c_root_m:.4f} m | c_tip = {tp.c_tip_m:.4f} m "
+        f"| MAC = {tp.mac_m:.4f} m",
         f"// booms: x_fwd = {bg.x_fwd:.4f} m | x_aft = {bg.x_aft:.4f} m "
         f"| y_station = {bg.y_station_m:.4f} m",
         "// Axes: x aft, y starboard, z up.",
@@ -138,9 +134,9 @@ def emit_openscad(design, path: str | Path) -> Path:
         "// aircraft the STEP/STL do.",
         "module tail() {",
         "    for (s = [1,-1]) hull() {",
-        f"        tail_section({c_root_t:.5f}, 0, {x_le_t:.5f}, s*{bg.y_station_m:.5f}, 0);",
-        f"        tail_section({c_tip_t:.5f}, 0, {x_le_t:.5f}, "
-        f"s*{bg.y_station_m + y_tip_off:.5f}, {z_tip_off:.5f});",
+        f"        tail_section({tp.c_root_m:.5f}, 0, {tp.x_le_m:.5f}, s*{bg.y_station_m:.5f}, 0);",
+        f"        tail_section({tp.c_tip_m:.5f}, 0, {tp.x_le_m:.5f}, "
+        f"s*{bg.y_station_m + tp.y_tip_offset_m:.5f}, {tp.z_tip_offset_m:.5f});",
         "    }",
         "}",
         "",
