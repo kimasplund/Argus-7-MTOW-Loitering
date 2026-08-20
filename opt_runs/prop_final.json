@@ -1,0 +1,12 @@
+{
+  "D": 1.04,
+  "rpm": 1900,
+  "blades": 2,
+  "pitch_ratio": 0.95,
+  "eta_fixed": 0.8580737957438354,
+  "eta_variable": 0.8580737957438354,
+  "pitch_ratio_vp": 0.95,
+  "absorb_ratio": 1.0123983874380438,
+  "climb_rpm": 2470.0,
+  "tip_mach": 0.3090654192513333
+}

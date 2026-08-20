@@ -21,6 +21,15 @@
 # power (C_P 0.911 vs a ~0.25 ceiling) is NOT yet modelled here.
 #
 # Tail area holds v1.0's tail volume coefficient Vh = 0.5765.
+#
+# PROPELLER (BEMT sweep, 2026-08-21): 1.00 m, 2 blades, 1900 rpm, p/D 1.05.
+# eta_loiter 0.852, absorbs 99.0% of the 8.15 kW rating at climb, tip Mach 0.30,
+# 76 mm boom clearance. The 1.04 m disc is 0.6% more efficient but leaves only
+# 56 mm, so the smaller disc is preferred on clearance grounds.
+# Reduction 3.95:1 for a 7500 rpm engine, NOT the 2.3:1 v1.0 specified.
+# Variable pitch buys ZERO at loiter - the loiter-optimal pitch is already the
+# fixed-pitch optimum - so it is mass, cost and a failure mode for nothing.
+
 name: ARGUS-7
 variant: v2.0
 mission:
@@ -70,9 +79,12 @@ tail:
 propulsion:
   engine_displacement_cc: 250.0
   power_max_kw: 8.15
-  reduction_ratio: 2.3
-  prop_diameter_m: 0.813
-  prop_rpm: 2100.0
+  reduction_ratio: 3.947
+  prop_diameter_m: 1.0
+  prop_rpm: 1900.0
+  prop_blades: 2
+  prop_pitch_ratio: 1.05
+  prop_eta_loiter: 0.8521
 masses:
   airframe: 59.39
   powertrain: 11.98
@@ -112,9 +124,9 @@ provenance:
   tail.panel_aspect_ratio: assumption
   propulsion.engine_displacement_cc: "report-\xA72"
   propulsion.power_max_kw: derived
-  propulsion.reduction_ratio: "report-\xA72"
-  propulsion.prop_diameter_m: "report-\xA72"
-  propulsion.prop_rpm: "report-\xA72"
+  propulsion.reduction_ratio: derived
+  propulsion.prop_diameter_m: derived
+  propulsion.prop_rpm: derived
   masses.airframe: derived
   masses.powertrain: derived
   masses.avionics: "report-\xA73"
@@ -128,3 +140,6 @@ provenance:
   aero.cd0: derived
   aero.oswald_e: derived
   aero.cl_max: "report-\xA74"
+  propulsion.prop_blades: derived
+  propulsion.prop_pitch_ratio: derived
+  propulsion.prop_eta_loiter: derived

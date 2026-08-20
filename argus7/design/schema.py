@@ -68,6 +68,12 @@ class Propulsion(BaseModel):
     reduction_ratio: float
     prop_diameter_m: float
     prop_rpm: float
+    # Added 2026-08-21 from the BEMT design sweep. v1.0 specified only diameter
+    # and rpm, which is not enough to determine whether the propeller can absorb
+    # the engine's power -- and it could not: C_P 0.911 against a ~0.25 ceiling.
+    prop_blades: int | None = None
+    prop_pitch_ratio: float | None = None
+    prop_eta_loiter: float | None = None
 
 class Masses(BaseModel):
     airframe: float; powertrain: float; avionics: float

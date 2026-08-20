@@ -1,0 +1,28 @@
+=== FIXED PITCH, refined grid ===
+    D   rpm  B   p/D     eta  absorb   tipM   score
+ 1.04  1900  2  0.95  0.8581   1.012  0.309  0.8544
+ 1.00  1900  2  1.05  0.8521   0.990  0.298  0.8490
+ 0.96  2200  2  0.90  0.8484   0.988  0.329  0.8448
+ 1.00  2050  2  0.90  0.8561   0.961  0.320  0.8443
+ 0.96  1900  3  1.00  0.8469   1.012  0.287  0.8434
+ 1.04  2050  2  0.95  0.8392   0.997  0.332  0.8384
+ 0.92  2350  2  0.90  0.8419   0.988  0.336  0.8382
+ 0.96  2050  2  1.05  0.8425   1.031  0.308  0.8331
+ 0.92  1900  3  1.10  0.8419   0.970  0.276  0.8328
+ 0.96  2050  2  1.00  0.8504   0.941  0.308  0.8327
+
+=== VARIABLE PITCH: same disc, pitch free at each condition ===
+  best disc 1.04 m, 2 blades, 1900 rpm
+  fixed pitch p/D 0.95 -> eta_loiter 0.8581
+  variable, loiter-optimal p/D 0.95 -> eta_loiter 0.8581   gain +0.00%
+
+=== ENDURANCE IMPACT (mission sim assumes eta_prop = 0.84) ===
+  fixed pitch     eta 0.8581 -> endurance x 1.0215 = 119.6 h (4.98 d), +2.5 h vs assumed
+  variable pitch  eta 0.8581 -> endurance x 1.0215 = 119.6 h (4.98 d), +2.5 h vs assumed
+
+=== REDUCTION RATIO (small 4-stroke peaks ~7000-8000 rpm) ===
+  engine 6500 rpm -> reduction 3.42:1 for 1900 prop rpm
+  engine 7500 rpm -> reduction 3.95:1 for 1900 prop rpm
+  engine 8500 rpm -> reduction 4.47:1 for 1900 prop rpm
+
+  boom clearance: prop radius 0.520 m vs boom inner 0.576 m -> 56 mm
