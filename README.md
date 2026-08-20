@@ -106,15 +106,19 @@ get them.
   and no landing gear it grounds first — but the sponsor has ruled that acceptable
   by making the tail surface a serviceable item (two screws and a quick connector,
   replaced if damaged). Ground clearance is therefore **not** a design driver.
-  What is: the booms extend aft of the prop disc and sit in its slipstream, so
-  they are excited at blade-passage frequency — 70 Hz for a 2-blade prop at
-  2100 RPM — continuously. That is **28.4 M cycles in one 4.7-day mission** and
-  126 M by the 500 h engine TBO. Two consequences: a quick-release bolted joint
-  at a high-cycle location fails by hole bearing wear and fretting long before
-  the laminate does, so it must sit outboard of fatigue-critical structure or be
-  a life-limited item with a stated interval; and if a boom natural frequency
-  lands near 70 Hz, resonance collapses fatigue life by orders of magnitude,
-  making frequency separation a constraint on the layup rather than a later check.
+  What is: joint design. (**Correction:** an earlier revision of this file claimed
+  the booms sit in the prop slipstream and are fatigue-driven by it. That was
+  wrong. The prop tip radius is 406.5 mm and the boom inner surface is at
+  575.6 mm, so the booms are 169 mm outside the disc — and the slipstream
+  *contracts* aft, to ~287 mm at full contraction. The booms are nowhere near
+  the wash. `research/boom_construction_pack.md` computes the resulting
+  vibratory strain at 0.011% against a 0.6% matrix fatigue limit — a 55× margin.
+  Inside the wash the same calculation gives 0.44% and fails, so the design
+  action is a **prohibition**: no structure inside r = 0.45 m aft of the disc.)
+  The boom's second bending mode at 75.8 Hz cannot be separated from blade
+  passage at any sensible diameter, and does not need to be. One real resonance
+  risk remains: first torsion at 22.7 Hz against a possible ~23 Hz prop 1P at
+  loiter rpm.
   The inverted-V is never justified in the report (§2 states it, the design pack
   repeats it, neither gives a reason) and its one real advantage — proverse
   roll-yaw coupling — is worth little on an aircraft specified for "gentle
