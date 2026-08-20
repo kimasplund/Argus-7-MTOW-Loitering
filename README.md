@@ -60,7 +60,11 @@ openscad -o argus7.stl model/argus7_model.scad   # export mesh
 
 Geometry is generated entirely from [design/argus7_v1.yaml](design/argus7_v1.yaml)
 by `scripts/build_model.py` — see "Known gaps" below for why the `.scad` file
-itself must never be hand-edited.
+itself must never be hand-edited. `scripts/build_model.py` also (re)generates
+`model/argus7.step` and `model/argus7.stl` locally; neither is committed
+(both are gitignored — regenerable build output, and STEP rewrites wholesale
+byte-for-byte on every build except its export timestamp) — run the script to
+get them.
 
 ## Known gaps
 
@@ -75,9 +79,26 @@ itself must never be hand-edited.
   resolved in v2 rather than by silently editing v1.
 - **The wing cannot hold its specified fuel.** Gross wing internal volume is
   ~143 L; a realistic tank (50% chord between spars, 80% of span, 88% net of
-  structure) gives ~50 L, against the 120 L the report requires. Report §2
-  places fuel in wing tanks at the aerodynamic centre specifically to hold CG
-  travel under 0.5% MAC as fuel burns, so relocating 101.5 kg (40.6% of MTOW)
-  to the fuselage is a stability problem, not a packaging detail. Unresolved;
-  escalated to the sponsor.
+  structure) gives ~50 L, against the 120 L the report requires. (This
+  supersedes [research/materials_pack.md](research/materials_pack.md) §2.5's
+  160 L gross / 56–72 L usable: that figure uses a hardcoded 0.68 airfoil
+  shape factor, which this project's own airfoil-coordinate data shows is
+  +12.2% biased high for FX 63-137 — the true shoelace-integrated shape
+  factor is 0.6062, not 0.68. 160 × 0.6062/0.68 = 142.6 L, the same
+  underlying number as this bullet's ~143 L. 143 L is the corrected figure;
+  see the correction note at the top of that pack's §2.5.) Report §2 places
+  fuel in wing tanks at the aerodynamic centre specifically to hold CG
+  travel under 0.5% MAC as fuel burns, so relocating 101.5 kg (40.6% of
+  MTOW) to the fuselage is a stability problem, not a packaging detail.
+  Unresolved; escalated to the sponsor.
+- **CAD is reproducible; the performance analysis behind the report is not.**
+  `model/argus7_model.scad`, `model/argus7.step` and `model/argus7.stl` are
+  now all generated from `design/argus7_v1.yaml` by `scripts/build_model.py`
+  (see above) — that gap is closed. What's still missing is source for the
+  *performance/mission* analysis: the Python that produced the report's
+  verified endurance numbers and `figures/design-pack/fig1`–`fig9` did not survive the
+  originating session. Those numbers remain reproducible only from the
+  method descriptions in [research/design_pack.md](research/design_pack.md),
+  not from runnable code. Regenerating that analysis pipeline is Phase-3
+  work, out of scope for this CAD rebuild.
 - Regulatory treatment (§9) is EU headline level only.

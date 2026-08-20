@@ -122,6 +122,25 @@ The shear web is equally undemanding: root shear 6.99 kN over a 70 mm depth need
 
 ### 2.5 Disagreement 3 — the wing cannot hold the fuel
 
+> **Correction (added post-publication, P1 CAD rebuild):** the 0.68 "typical
+> airfoil" shape factor used below is measurably wrong for this design's
+> actual section. Loading the real FX 63-137 coordinates
+> (`data/airfoils/fx63137.dat`) and computing the enclosed area directly by
+> shoelace integration gives a shape factor of **0.6062**, not 0.68 — 0.68
+> is **+12.2% biased high** for this aerofoil (`0.68/0.6062 = 1.122`; see
+> `tests/test_cad_wing.py::test_wing_planform_area_matches_spec`, which
+> found and fixed the same bias in the CAD volume check). Propagating the
+> corrected factor through this section's own arithmetic:
+> `160 L × 0.6062/0.68 = 142.6 L gross` (≈ **143 L**, not 160 L). The
+> "56–72 L usable" figure below scales down by the same ratio to
+> **~50–64 L usable**, still well short of the report's 120 L requirement —
+> the qualitative finding (the wing cannot hold the fuel) is unchanged and,
+> if anything, worse than originally stated. The rest of this section is
+> left as originally written rather than silently edited; treat 0.68 and
+> everything downstream of it (160 L, 56–72 L) as superseded by the 143 L /
+> ~50–64 L figures above. See `README.md`'s "Known gaps" for the
+> project-level tracking of this finding.
+
 Wing internal volume, taking the enclosed airfoil area as 0.68·c·t = 0.0932·c² for a 13.7% section:
 
 V = 2 × 0.0932 × ∫₀ˢ c(y)² dy = 2 × 0.0932 × 0.8604 = **0.160 m³ = 160 L gross**
