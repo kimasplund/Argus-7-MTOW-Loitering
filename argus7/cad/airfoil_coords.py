@@ -39,10 +39,15 @@ def load_airfoil(name: str) -> np.ndarray:
       "49.0 49.0" -- NOT a coordinate), then two separate LE -> TE surface
       blocks (upper, then lower). Detected when the first numeric pair has
       either value > 1.0 (a real normalised coordinate never does). The
-      header is dropped, the remaining points are split into the two
-      surfaces at the index where x resets toward zero (i.e. where x drops
-      after climbing toward the TE), and reassembled into Selig order so
-      everything downstream sees one consistent convention.
+      header's declared per-surface counts are not just used to detect the
+      format -- they are also used to *validate* the split: the remaining
+      points are split into the two surfaces at the index where x resets
+      toward zero (i.e. where x drops after climbing toward the TE), and
+      that split index and the total point count must agree with the
+      header's declared counts, or a ValueError is raised rather than
+      silently mis-splitting a file with a non-monotonic surface. On
+      success the surfaces are reassembled into Selig order so everything
+      downstream sees one consistent convention.
     """
     path = DATA / f"{name.lower().replace('-', '').replace(' ', '')}.dat"
     rows = []
@@ -57,14 +62,28 @@ def load_airfoil(name: str) -> np.ndarray:
     pts = np.array(rows, dtype=float)
 
     if pts[0, 0] > 1.0 or pts[0, 1] > 1.0:
-        # Lednicer: drop the point-count header, then split the two
-        # LE -> TE surface blocks at the point where x resets toward zero.
+        # Lednicer: the header declares each surface's point count. Use it
+        # as free validation data, not just format detection -- a file with
+        # a non-monotonic surface must fail loudly, not silently mis-split.
+        n_upper, n_lower = int(round(pts[0, 0])), int(round(pts[0, 1]))
         pts = pts[1:]
         split = len(pts)
         for i in range(1, len(pts)):
             if pts[i, 0] < pts[i - 1, 0]:
                 split = i
                 break
+        if split != n_upper:
+            raise ValueError(
+                f"{path}: Lednicer header declares {n_upper} upper / "
+                f"{n_lower} lower points, but the x-decrease split was "
+                f"detected at index {split} (expected {n_upper}). Refusing "
+                f"to silently guess which surface split is correct.")
+        if len(pts) != n_upper + n_lower:
+            raise ValueError(
+                f"{path}: Lednicer header declares {n_upper} + {n_lower} = "
+                f"{n_upper + n_lower} points, but {len(pts)} coordinate "
+                f"points remain after dropping the header. Refusing to "
+                f"silently guess which points belong to which surface.")
         upper, lower = pts[:split], pts[split:]
         c = np.vstack([upper[::-1], lower[1:]])         # TE -> LE -> TE, Selig order
     else:

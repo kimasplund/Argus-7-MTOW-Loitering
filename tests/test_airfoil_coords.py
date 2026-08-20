@@ -63,7 +63,9 @@ def test_negative_twist_produces_washout():
 # point-count header ("49.0 49.0") that is NOT a coordinate, then two
 # LE->TE surface blocks (upper, then lower). load_airfoil must detect this
 # and reassemble it into Selig order, rather than ingesting the header as a
-# spurious coordinate (which yields a bogus t/c of 1.0000).
+# spurious coordinate (which yields a bogus t/c of 1.0000). Fix round 1: the
+# header's declared per-surface counts must also validate the split (see
+# test_lednicer_header_mismatch_raises below), not just detect the format.
 
 def test_fx63137_load_airfoil_is_lednicer_and_reassembled_correctly():
     """Regression guard: the count-header bug produces t/c == 1.0000. The
@@ -72,7 +74,6 @@ def test_fx63137_load_airfoil_is_lednicer_and_reassembled_correctly():
     c = load_airfoil("fx63137")
     tc = max_thickness(c)
     assert tc == pytest.approx(0.1371, abs=0.001)
-    assert tc != pytest.approx(1.0, abs=0.01)
     # LE must be interior (two surfaces present), not an endpoint of the array
     le_idx = int(np.argmin(c[:, 0]))
     assert 0 < le_idx < len(c) - 1
@@ -104,6 +105,40 @@ def test_load_airfoil_handles_selig_format_directly(tmp_path, monkeypatch):
         [1.0, 0.0],
     ])
     assert np.allclose(c, expected)
+
+def test_lednicer_header_mismatch_raises(tmp_path, monkeypatch):
+    """Fix round 1 finding: the Lednicer header's declared per-surface point
+    counts must be used to *validate* the x-decrease split, not just to
+    detect the format. A file whose header disagrees with its actual point
+    layout (e.g. from a non-monotonic surface) must fail loudly rather than
+    silently mis-splitting -- Phase 2 ingests S1223/E387/SD7037, where a
+    silent mis-split would quietly corrupt a drag polar.
+
+    This fixture declares 4 upper / 4 lower points, but the actual data has
+    5 points climbing monotonically before x resets toward zero (a split at
+    index 5, not the declared 4) -- deliberately chosen so it is the
+    split-index check, not merely the total-point-count check, that fires.
+    """
+    import argus7.cad.airfoil_coords as ac
+
+    bad_text = (
+        "BAD LEDNICER AIRFOIL\n"
+        "   4.0   4.0\n"
+        "\n"
+        "  0.000000  0.000000\n"
+        "  0.300000  0.050000\n"
+        "  0.600000  0.070000\n"
+        "  0.900000  0.030000\n"
+        "  1.000000  0.000000\n"
+        "  0.000000  0.000000\n"
+        "  0.500000 -0.040000\n"
+        "  1.000000  0.000000\n"
+    )
+    (tmp_path / "bad_lednicer.dat").write_text(bad_text)
+    monkeypatch.setattr(ac, "DATA", tmp_path)
+
+    with pytest.raises(ValueError, match="declares"):
+        ac.load_airfoil("bad_lednicer")
 
 
 # --- RULING: make the `derived` provenance tag true --------------------------
