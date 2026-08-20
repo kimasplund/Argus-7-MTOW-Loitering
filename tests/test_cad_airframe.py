@@ -1,3 +1,4 @@
+import math
 import pytest
 from argus7.design.schema import load_design
 from argus7.design.geometry import derive_wing, derive_booms, wing_le_x, wing_ac_x, tail_qc_x
@@ -163,17 +164,41 @@ def test_full_aircraft_is_valid_and_within_envelope(design):
 # for a disjoint Compound, and trimesh.is_watertight is a per-edge manifold
 # test that four separate closed shells pass.
 
-def _wing_lower_z_at_boom_station(design):
-    """Measured lower-surface z of the assembled (lifted) wing at the boom
-    centreline, taken from the built solid with a thin slab intersection --
-    not recomputed from the section formulas, so this cannot agree with the
-    model by sharing its arithmetic."""
+@pytest.fixture(scope="module")
+def wing_boom_joint(design):
+    """Everything the wing/boom joint guards need, measured ONCE from the
+    built solids rather than recomputed from the section formulas -- so these
+    checks cannot agree with the model by sharing its arithmetic.
+
+    Returns, all in SI:
+      lower_z        wing lower-surface z at the boom centreline plane
+      chord_x        the wing's x-extent at that plane
+      thickness_z    the wing's z-extent at that plane
+      burial         how far the boom's top surface is inside the wing
+      volume         (wing & booms).volume, BOTH joints
+      ideal          2 x (circular segment of the boom above lower_z) x chord_x
+                     -- the flat-plate upper bound on the interference, see
+                     test_wing_boom_interference_volume_is_plausible
+    """
     from build123d import Box, Location
     bg = derive_booms(design)
+    r = design.booms.diameter_m / 2.0
     wing = Location((wing_le_x(design), 0, design.wing.z_offset_m)) * build_wing(design)
+    booms = build_booms(design)
     slab = Location((design.fuselage.length_m, bg.y_station_m, 0)) * \
         Box(4 * design.fuselage.length_m, 0.002, 4.0)
-    return (wing & slab).bounding_box().min.Z
+    bb = (wing & slab).bounding_box()
+    lower_z, chord_x = bb.min.Z, bb.max.X - bb.min.X
+    inter = wing & booms
+    segment = (r ** 2 * math.acos(min(max(lower_z / r, -1.0), 1.0))
+               - lower_z * math.sqrt(max(r ** 2 - lower_z ** 2, 0.0))
+               ) if lower_z < r else 0.0
+    return {
+        "lower_z": lower_z, "chord_x": chord_x,
+        "thickness_z": bb.max.Z - bb.min.Z, "burial": r - lower_z,
+        "volume": inter.volume if inter else 0.0,
+        "ideal": 2.0 * segment * chord_x,
+    }
 
 
 def test_wing_z_offset_reaches_both_geometry_paths(design, tmp_path):
@@ -199,24 +224,75 @@ def test_wing_z_offset_reaches_both_geometry_paths(design, tmp_path):
         "emit_openscad ignored design.wing.z_offset_m")
 
 
-def test_wing_captures_the_booms(design):
+def test_wing_captures_the_booms(design, wing_boom_joint):
     """C1: the boom must be structurally let into the wing's lower surface,
     with real interference volume -- not floating below an air gap.
 
     Relational, not pinned: the boom's top must sit inside the wing by a
     usable fraction of its own diameter, and the wing must not reach the boom
-    centreline (which would mean the 90 mm tube is more than half swallowed
-    by a wing only 73.7 mm thick at that station)."""
-    r = design.booms.diameter_m / 2.0
-    wing_lower_z = _wing_lower_z_at_boom_station(design)
-    overlap = r - wing_lower_z
-    assert overlap > 0.010, (
-        f"wing lower surface z={wing_lower_z:.4f} m at the boom station is "
-        f"only {overlap * 1000:.1f} mm into the boom top (z={r:.4f} m) -- "
-        "the boom is not structurally captured")
-    assert wing_lower_z > 0.0, (
-        "the wing reaches below the boom centreline: a 90 mm tube cannot be "
-        "more than half buried in a 73.7 mm thick wing section")
+    centreline -- the wing section measures only ~75 mm thick at that station
+    against a 90 mm boom, so a through-boom is geometrically impossible and
+    the joint has to be a let-in from below."""
+    j = wing_boom_joint
+    assert j["burial"] > 0.010, (
+        f"wing lower surface z={j['lower_z']:.4f} m at the boom station is "
+        f"only {j['burial'] * 1000:.1f} mm into the boom top "
+        f"(z={design.booms.diameter_m / 2:.4f} m) -- the boom is not "
+        "structurally captured")
+    assert j["lower_z"] > 0.0, (
+        f"the wing reaches below the boom centreline: a "
+        f"{design.booms.diameter_m * 1000:.0f} mm tube cannot be more than "
+        f"half buried in a {j['thickness_z'] * 1000:.1f} mm thick wing section")
+
+
+def test_wing_boom_interference_volume_is_plausible(design, wing_boom_joint):
+    """RE-REVIEW, C1 hardening: `(wing & booms).volume > 0` is NOT sufficient.
+
+    OCCT's boolean is ill-conditioned near this joint, and it fails in two
+    different ways. Swept against an independent integration:
+
+        z_offset  burial   ideal(2 joints)  OCCT     solids
+        0.004     23.5 mm       1425 cm^3    730.8      1
+        0.006     21.5 mm       1258 cm^3      0.0      3   <- silent split
+        0.008     19.5 mm       1095 cm^3    497.3      1   <- shipped value
+        0.010     17.5 mm        939 cm^3     14.9      1   <- silent no-merge
+        0.012     15.5 mm        789 cm^3      9.5      1   <- silent no-merge
+        0.015     12.5 mm        578 cm^3    204.9      1
+        0.017     10.5 mm        449 cm^3    146.0      1
+
+    At 0.006 the guards catch it loudly (3 disconnected solids, is_valid still
+    True). At 0.010-0.012 every other guard PASSES -- volume > 0, one solid,
+    is_valid True -- while the fused solid over-counts by ~390 cm^3 because
+    the joint silently failed to merge, and test_stl_repair_preserves_volume
+    cannot see it: both sides of that comparison derive from the same bad
+    solid and the error is 0.06% against a 1% tolerance. That ships a
+    defective B-rep to the Phase-2 mesher.
+
+    So the floor is DERIVED, not pinned: the interference is bounded above by
+    the circular segment of the boom lying above the wing's measured lower
+    surface, extruded over the wing's measured chordwise extent (a flat-plate
+    idealisation -- the real lower surface is cambered and rises fore and
+    aft, so the truth is a fraction of it). Measured, that fraction is 0.454
+    at the shipped value and never below 0.325 anywhere in the usable
+    z_offset window; every mis-conditioned result above is at or below 0.016.
+    A threshold of 0.25 therefore sits more than an order of magnitude clear
+    of every observed failure while keeping >= 1.3x margin against the
+    physics across the whole window, and it self-adjusts if z_offset is ever
+    re-optimised, which a hardcoded cm^3 figure would not.
+    """
+    j = wing_boom_joint
+    floor = 0.25 * j["ideal"]
+    assert j["volume"] > floor, (
+        f"(wing & booms).volume = {j['volume'] * 1e6:.1f} cm^3 against a "
+        f"{floor * 1e6:.1f} cm^3 floor derived from a {j['burial'] * 1000:.1f} mm "
+        f"burial of a {design.booms.diameter_m * 1000:.0f} mm boom over a "
+        f"{j['chord_x'] * 1000:.0f} mm chord. The joint is present but the "
+        "boolean did not merge it -- do not adjust this threshold; re-check "
+        "design.wing.z_offset_m against the sweep in this docstring.")
+    assert j["volume"] < j["ideal"], (
+        f"(wing & booms).volume = {j['volume'] * 1e6:.1f} cm^3 EXCEEDS the "
+        f"flat-plate upper bound {j['ideal'] * 1e6:.1f} cm^3 -- impossible for "
+        "a cambered section; the boolean has over-counted.")
 
 
 def test_structural_load_path_is_continuous(design):
@@ -231,6 +307,11 @@ def test_structural_load_path_is_continuous(design):
     wing = Location((wing_le_x(design), 0, design.wing.z_offset_m)) * build_wing(design)
     fus, booms, tail = build_fuselage(design), build_booms(design), build_tail(design)
     assert (tail & booms).volume > 0, "tail panels are not carried by the booms"
+    # The wing/boom link needs more than `> 0`: OCCT can return a token
+    # non-zero volume for a joint it silently failed to merge (14.9 cm^3 at
+    # z_offset 0.010 against a true ~430). The magnitude is guarded by
+    # test_wing_boom_interference_volume_is_plausible; here we only need the
+    # link to exist.
     assert (wing & booms).volume > 0, "booms are not carried by the wing"
     assert (wing & fus).volume > 0, "wing is not attached to the fuselage"
     assert (booms & fus).volume == 0, (

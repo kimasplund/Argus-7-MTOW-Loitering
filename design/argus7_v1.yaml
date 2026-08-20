@@ -58,18 +58,53 @@ wing:
   # asserts they are equal (that would BE the coupling).
   x_le_frac: 0.22
   # Vertical offset of the wing root leading edge above the fuselage
-  # centreline (z = 0, which is also the boom axis). FINAL REVIEW C1: this
-  # was a bare 0.05 typed into argus7.cad.model.build_aircraft and a second
-  # time into argus7.cad.to_openscad, and at 0.05 m it held the wing's lower
-  # surface 25.8 mm ABOVE the top of the booms -- the booms, and the entire
-  # tail they carry, were a free-floating body. 0.008 m puts the wing's
-  # measured lower surface at z = 0.0255 m at the boom station (y = 0.6206 m),
-  # letting the top 19.5 mm -- 21.7% of the boom's 90 mm diameter -- into the
-  # wing, which is a real structural joint (see
-  # research/materials_pack.md's printed wing-boom junction fillets) while
-  # leaving the wing clear of the boom centreline: the wing section is only
-  # 73.7 mm thick there, so a 90 mm tube cannot pass through it.
-  # Guarded by tests/test_cad_airframe.py::test_wing_captures_the_booms.
+  # centreline (z = 0, which is also the boom axis).
+  #
+  # FINAL REVIEW C1: this was a bare 0.05 typed into
+  # argus7.cad.model.build_aircraft and a second time into
+  # argus7.cad.to_openscad, and at 0.05 m it held the wing's lower surface
+  # 25.8 mm ABOVE the top of the booms -- the booms, and the entire tail they
+  # carry, were a free-floating body.
+  #
+  # DO NOT CHANGE THIS VALUE WITHOUT RE-VERIFYING THE JOINT. The record of
+  # why 0.008 was chosen over its neighbours lives here because it must
+  # survive in the repository:
+  #
+  # 1. Usable window, measured from the built solid, is roughly [0, 0.0175]:
+  #    - Lower bound 0: the wing must stay clear of the boom centreline. The
+  #      wing section measures 75.2 mm thick at the boom station (y = 0.6206 m)
+  #      against a 90 mm boom, so a through-boom is GEOMETRICALLY IMPOSSIBLE.
+  #      The joint has to be a let-in from below, not a carry-through.
+  #    - Upper bound 0.0175: above it the burial falls under the 10 mm the
+  #      structural guard requires, and by 0.0275 the joint vanishes entirely.
+  # 2. 0.008 sits mid-window: the wing's measured lower surface is at
+  #    z = 0.0255 m, letting the boom's top 19.5 mm -- 21.7% of its diameter
+  #    -- into the wing. That is a real structural joint of the kind
+  #    research/materials_pack.md already presumes when it specifies printed
+  #    wing-boom junction fillets.
+  # 3. OCCT's boolean is ILL-CONDITIONED at neighbouring values, in two
+  #    distinct ways, neither of which is visible without the interference
+  #    guard:
+  #    - 0.006: the boolean returns 0.0 cm3 and the airframe comes out as
+  #      THREE disconnected solids -- while is_valid still reports True.
+  #    - 0.010-0.012: every structural guard passes (volume > 0, one solid,
+  #      is_valid True) but the joint silently fails to merge and the fused
+  #      solid over-counts by ~390 cm3. test_stl_repair_preserves_volume
+  #      cannot see it -- both sides of that comparison derive from the same
+  #      bad solid, and the error is 0.06% against a 1% tolerance. That would
+  #      ship a defective B-rep to the Phase-2 mesher.
+  #    Guarded by tests/test_cad_airframe.py::
+  #    test_wing_boom_interference_volume_is_plausible, whose floor is derived
+  #    from the measured burial depth and carries the full sweep.
+  #
+  # PHASE-2 CONSEQUENCE, for a value tagged `assumption`: at 0.008 the chord
+  # plane sits 8 mm above the fuselage centreline where it used to sit 50 mm
+  # above, so ARGUS-7 is now a MID-WING aircraft and the spar carry-through
+  # BISECTS THE FUSELAGE BAY. That is a real packaging and CG problem for the
+  # 50 kg payload and the fuel the report puts at the aerodynamic centre, and
+  # it is a consequence of a value nobody has yet sourced to the report.
+  # Structurally correct as it stands; not yet reconciled with the internal
+  # layout.
   z_offset_m: 0.008
 
 fuselage:

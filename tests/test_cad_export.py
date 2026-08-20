@@ -100,7 +100,18 @@ def test_openscad_rendered_wing_tip_shows_washout(rendered_openscad_stl, design)
     local X within that station) must sit ABOVE the leading edge (min local
     X) in Z."""
     g = derive_wing(design.wing)
-    assert design.wing.twist_tip_deg < 0, "this guard assumes washout twist"
+    # RE-REVIEW: this precondition used to read `twist_tip_deg < 0`, which
+    # stopped implying what the assertion below needs once I3 wired incidence
+    # in. What matters at the tip is the TOTAL geometric angle, incidence +
+    # washout = +2 - 3 = -1 deg: still washout, but the discriminating margin
+    # fell from 13.7 mm to 4.56 mm. Written as twist_tip_deg alone, any future
+    # design with incidence_deg >= |twist_tip_deg| would fail this test
+    # spuriously while its geometry was perfectly correct.
+    tip_angle_deg = design.wing.incidence_deg + design.wing.twist_tip_deg
+    assert tip_angle_deg < 0, (
+        f"this guard assumes the TIP is in washout; incidence "
+        f"{design.wing.incidence_deg} + twist {design.wing.twist_tip_deg} = "
+        f"{tip_angle_deg} deg is not")
     m = rendered_openscad_stl
     y_max = m.bounds[1][1]
     tip = m.vertices[m.vertices[:, 1] > y_max - 0.05]      # wing-tip band only
