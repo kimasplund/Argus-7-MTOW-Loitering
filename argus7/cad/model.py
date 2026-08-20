@@ -102,8 +102,7 @@ def build_tail(design) -> Part:
     the inverted-V tail tips sit well below the boom line, below the
     fuselage keel. Ground clearance on launch is a Phase-2 concern.
     """
-    g = derive_wing(design.wing)
-    y_boom = design.booms.y_station_frac * (g.span_m / 2.0)
+    y_boom = derive_booms(design).y_station_m
     gam = math.radians(design.tail.dihedral_deg)          # negative = inverted
     panel_area = design.tail.area_h_m2 / (2.0 * math.cos(gam) ** 2)
     lam = design.tail.taper_ratio
