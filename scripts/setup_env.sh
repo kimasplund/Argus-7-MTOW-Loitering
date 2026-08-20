@@ -49,9 +49,9 @@ cd "$ROOT/vendor"
 if [ ! -x "$ROOT/vendor/bin/avl" ]; then
   wget -q https://web.mit.edu/drela/Public/web/avl/avl3.36.tgz -O avl.tgz \
     && tar xzf avl.tgz && cd Avl \
-    && make -C plotlib -f Makefile.gfortran >/dev/null 2>&1 \
-    && make -C eispack -f Makefile.gfortran >/dev/null 2>&1 \
-    && make -f Makefile.gfortran >/dev/null 2>&1 \
+    && make -C plotlib gfortran \
+    && make -C eispack -f Makefile.gfortran \
+    && make -C bin -f Makefile.gfortran \
     && mkdir -p "$ROOT/vendor/bin" && cp bin/avl "$ROOT/vendor/bin/" \
     && ok "avl built" || fail "avl build (will retry interactively)"
 else ok "avl already present"; fi
