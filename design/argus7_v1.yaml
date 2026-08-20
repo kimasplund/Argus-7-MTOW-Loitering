@@ -1,6 +1,27 @@
-# ARGUS-7 v1.0 as published in docs/argus7_design_report.md section 2.
-# Transcribed verbatim including the section-2 tail inconsistency (see
-# tests/test_geometry_closure.py::test_report_stated_tail_volume).
+# ARGUS-7 v1.0 parameter file.
+#
+# Provenance is field-level, not file-level: see the `provenance:` block
+# below (checked by tests/test_geometry_closure.py::
+# test_every_geometry_field_has_provenance) rather than trusting any
+# whole-file claim. Tags:
+#   report-§2    verbatim/unambiguous from docs/argus7_design_report.md
+#                section 2, including its tail-volume inconsistency (see
+#                test_report_stated_tail_volume) — not "fixed" here.
+#   design_pack-§1  from research/design_pack.md section 1. NOT used below:
+#                that pack describes the 200 kg AR-20 predecessor, a
+#                different aircraft, and none of v1.0's numbers come from it.
+#   derived      not authoritative as written; a later task computes it from
+#                other Design fields (booms.length_m in Task 4;
+#                wing.thickness_ratio will be cross-checked against loaded
+#                FX63-137 airfoil coordinates in Task 2 rather than trusted
+#                as a bare digit of the airfoil name).
+#   assumption   appears in neither the report nor the design pack. Several
+#                of these (fuselage.*, booms.diameter_m, booms.y_station_frac,
+#                tail.dihedral_deg, tail.taper_ratio, tail.airfoil) were
+#                carried over from model/argus7_model.scad, the defective
+#                artifact this phase replaces — kept as placeholder values,
+#                explicitly flagged non-authoritative rather than
+#                mislabeled as report-derived.
 name: ARGUS-7
 variant: v1.0
 
@@ -29,3 +50,30 @@ propulsion: {engine_displacement_cc: 250.0, power_max_kw: 17.0,
 masses:   {airframe: 60.5, powertrain: 25.0, avionics: 6.0, recovery: 7.0,
            payload: 50.0, fuel: 101.5, mtow: 250.0}
 aero:     {cd0: 0.020, oswald_e: 0.85, cl_max: 1.6}
+
+provenance:
+  wing.area_m2: report-§2
+  wing.aspect_ratio: report-§2
+  wing.taper_ratio: report-§2
+  wing.airfoil: report-§2
+  wing.thickness_ratio: derived
+  wing.twist_tip_deg: assumption
+  wing.dihedral_deg: assumption
+  wing.sweep_le_deg: assumption
+  wing.incidence_deg: assumption
+  fuselage.length_m: assumption
+  fuselage.max_diameter_m: assumption
+  booms.length_m: derived
+  booms.diameter_m: assumption
+  booms.y_station_frac: assumption
+  tail.type: report-§2
+  tail.area_h_m2: report-§2
+  tail.arm_m: report-§2
+  tail.dihedral_deg: assumption
+  tail.taper_ratio: assumption
+  tail.airfoil: assumption
+  propulsion.engine_displacement_cc: report-§2
+  propulsion.power_max_kw: report-§2
+  propulsion.reduction_ratio: report-§2
+  propulsion.prop_diameter_m: report-§2
+  propulsion.prop_rpm: report-§2

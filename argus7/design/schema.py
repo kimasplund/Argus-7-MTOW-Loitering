@@ -62,6 +62,11 @@ class Design(BaseModel):
     masses: Masses | None = None
     mission: Mission | None = None
     aero: Aero | None = None
+    # Maps "section.field" -> one of report-§2 / design_pack-§1 / derived /
+    # assumption. Machine-checked provenance so a defective-artifact value
+    # (e.g. model/argus7_model.scad) can never again be silently claimed as
+    # report-sourced. See test_every_geometry_field_has_provenance.
+    provenance: dict[str, str] | None = None
 
 def load_design(path: str | Path) -> Design:
     from argus7.design.geometry import check_closure

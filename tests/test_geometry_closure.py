@@ -19,6 +19,11 @@ def test_superseded_gemini_chords_are_rejected():
     assert abs(g.chord_root_m - 0.674) > 0.05
 
 def test_closure_identities_hold():
+    """Guards derive_wing's formulas (b, c_root, c_tip, MAC) against coding
+    regression, not the underlying data against inconsistency: c_tip =
+    taper * c_root holds by construction for any input derive_wing accepts,
+    so this can never catch a bad design.yaml on its own — that's what
+    check_closure / test_inconsistent_design_raises is for."""
     g = derive_wing(load_design("design/argus7_v1.yaml").wing)
     assert abs(g.area_m2 - (g.span_m / 2) * (g.chord_root_m + g.chord_tip_m)) < 1e-9
     assert abs(g.aspect_ratio - g.span_m**2 / g.area_m2) < 1e-9
@@ -46,3 +51,26 @@ def test_report_stated_tail_volume():
 def test_tail_volume_actual_value_is_pinned():
     """Pin the real computed value so a future edit cannot drift it unnoticed."""
     assert tail_volume_h(load_design("design/argus7_v1.yaml")) == pytest.approx(0.5765, abs=1e-3)
+
+def test_every_geometry_field_has_provenance():
+    """Every geometry field under wing/fuselage/booms/tail/propulsion must
+    declare where its number came from (report-§2, design_pack-§1, derived,
+    or assumption), so a defective-artifact value (e.g. model/argus7_model.scad)
+    can never again be silently claimed as report-derived."""
+    design = load_design("design/argus7_v1.yaml")
+    assert design.provenance is not None
+    allowed_tags = {"report-§2", "design_pack-§1", "derived", "assumption"}
+    sections = {
+        "wing": design.wing,
+        "fuselage": design.fuselage,
+        "booms": design.booms,
+        "tail": design.tail,
+        "propulsion": design.propulsion,
+    }
+    for section_name, model in sections.items():
+        assert model is not None, f"{section_name} missing from design"
+        for field_name in model.model_dump(exclude_none=True):
+            key = f"{section_name}.{field_name}"
+            assert key in design.provenance, f"no provenance entry for {key}"
+            tag = design.provenance[key]
+            assert tag in allowed_tags, f"{key} has invalid provenance tag {tag!r}"
