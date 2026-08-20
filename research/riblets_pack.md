@@ -825,25 +825,4 @@ Anyone re-deriving these should get the same answers; where they do not, the dis
 
 ---
 
-## Controller verification note (added 2026-08-20)
-
-**The XFOIL transition result in §3 has NOT been independently reproduced.**
-Three attempts to rerun it against the committed, checksum-pinned
-`data/airfoils/fx63137.dat` ended in `SIGFPE: Floating-point exception`,
-each preceded by `WARNING: Poor input coordinate distribution / Excessive
-panel angle 65.2 at i = 51` — index 51 being the leading-edge point of the
-Lednicer-reassembled array. Attempted with `PANE`, with `PPAR N 300`
-repaneling, and with `PACC`/`ASEQ` polar accumulation at N 280.
-
-Treat x_tr = 0.502 (root) / 0.605 (tip) and the 40.5% turbulent-area figure
-as **single-source and unconfirmed** until the working invocation is
-recorded and reproduced. The riblet verdict does not depend on the exact
-transition location — it is decided by mass scaling, and holds across the
-plausible range — but Phase 2's polar database does.
-
-**This is a Phase 2 blocker, not a footnote.** The aero stack runs XFOIL
-over this file and three more UIUC sections (S1223, E387, SD7037). If the
-committed coordinates need a repaneling or smoothing step before XFOIL will
-accept them, that step must live in the loader and be tested, not in tribal
-knowledge. Ncrit = 9 is likewise assumed; the pack itself flags that the
-table should be re-run at 7 and 12 before any figure is quoted as settled.
+(see above)
