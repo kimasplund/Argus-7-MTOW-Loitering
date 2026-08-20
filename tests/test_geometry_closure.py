@@ -35,7 +35,8 @@ def test_inconsistent_design_raises(tmp_path):
         "name: bad\nvariant: test\n"
         "wing: {area_m2: 3.9, aspect_ratio: 22.0, taper_ratio: 0.45,\n"
         "       chord_root_m_assert: 0.674, airfoil: FX63-137, twist_tip_deg: -3.0,\n"
-        "       dihedral_deg: 3.0, sweep_le_deg: 1.0, thickness_ratio: 0.137, incidence_deg: 2.0}\n"
+        "       dihedral_deg: 3.0, sweep_le_deg: 1.0, thickness_ratio: 0.137,\n"
+        "       incidence_deg: 2.0, x_le_frac: 0.22, z_offset_m: 0.008}\n"
     )
     with pytest.raises(ClosureError):
         load_design(bad)

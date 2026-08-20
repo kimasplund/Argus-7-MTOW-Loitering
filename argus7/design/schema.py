@@ -13,6 +13,14 @@ class Wing(BaseModel):
     sweep_le_deg: float
     thickness_ratio: float = Field(gt=0, lt=0.5)
     incidence_deg: float
+    # Vertical offset of the wing root leading edge above the fuselage
+    # centreline / boom axis (z = 0). Promoted out of the bare 0.05 that was
+    # typed into argus7.cad.model.build_aircraft AND, a second time, into
+    # argus7.cad.to_openscad (final review, finding C1): at 0.05 m the wing
+    # floated 25.8 mm clear of the booms it is supposed to carry. No default:
+    # a Python-side default is exactly the geometry literal this field exists
+    # to abolish.
+    z_offset_m: float
     chord_root_m_assert: float | None = None   # optional cross-check, not a source of truth
 
 class Fuselage(BaseModel):

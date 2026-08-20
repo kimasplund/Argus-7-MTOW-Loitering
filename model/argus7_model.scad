@@ -82,7 +82,7 @@ module tail() {
     }
 }
 
-translate([0.74800, 0, 0.05]) wing();  // 0.05: mirrors build_aircraft's fixed wing z-lift
+translate([0.74800, 0, 0.00800]) wing();  // z from design.wing.z_offset_m -- FINAL REVIEW C1: this was a second hand-typed copy of build_aircraft's 0.05 wing z-lift
 fuselage();
 booms();
 tail();

@@ -139,9 +139,30 @@ def build_installed_items(design) -> Part:
     return gimbal + chute + prop + ant
 
 
-def build_aircraft(design) -> Part:
-    """Assembled model. Wing root LE is placed at 22% of fuselage length --
-    the same x_wing_le used by derive_booms and tail_qc_x."""
-    wing = Location((wing_le_x(design), 0, 0.05)) * build_wing(design)
-    return wing + build_fuselage(design) + build_booms(design) \
-                + build_tail(design) + build_installed_items(design)
+def build_aircraft(design, include_items: bool = True) -> Part:
+    """Assembled model. The wing root LE sits at wing_le_x(design) aft and
+    design.wing.z_offset_m above the fuselage centreline.
+
+    FINAL REVIEW C1: both of those placements used to be bare literals here
+    (0.22 * length inside wing_le_x, and a 0.05 z-lift typed here and again
+    in argus7.cad.to_openscad). The z-lift in particular held the wing's
+    lower surface 25.8 mm above the top of the booms, so the assembly was
+    four disconnected bodies -- booms and tail carried by nothing -- while
+    still reporting is_valid True and a watertight STL, because neither test
+    can see across a gap between separate closed shells.
+
+    include_items=False returns the STRUCTURE alone: fuselage + wing + booms
+    + tail, which must be a single solid (see
+    tests/test_cad_airframe.py::test_analysis_solid_is_a_single_body). The
+    illustrative gimbal/chute/antenna/prop of build_installed_items are not
+    design-contract geometry, and the pusher prop disc genuinely floats 50 mm
+    aft of the fuselage; analysis paths that must not see free bodies should
+    pass include_items=False.
+    """
+    wing = Location((wing_le_x(design), 0, design.wing.z_offset_m)) \
+        * build_wing(design)
+    airframe = wing + build_fuselage(design) + build_booms(design) \
+                    + build_tail(design)
+    if not include_items:
+        return airframe
+    return airframe + build_installed_items(design)

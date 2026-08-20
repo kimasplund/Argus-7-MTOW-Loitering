@@ -43,6 +43,20 @@ wing:
   sweep_le_deg: 1.0
   thickness_ratio: 0.137
   incidence_deg: 2.0
+  # Vertical offset of the wing root leading edge above the fuselage
+  # centreline (z = 0, which is also the boom axis). FINAL REVIEW C1: this
+  # was a bare 0.05 typed into argus7.cad.model.build_aircraft and a second
+  # time into argus7.cad.to_openscad, and at 0.05 m it held the wing's lower
+  # surface 25.8 mm ABOVE the top of the booms -- the booms, and the entire
+  # tail they carry, were a free-floating body. 0.008 m puts the wing's
+  # measured lower surface at z = 0.0255 m at the boom station (y = 0.6206 m),
+  # letting the top 19.5 mm -- 21.7% of the boom's 90 mm diameter -- into the
+  # wing, which is a real structural joint (see
+  # research/materials_pack.md's printed wing-boom junction fillets) while
+  # leaving the wing clear of the boom centreline: the wing section is only
+  # 73.7 mm thick there, so a 90 mm tube cannot pass through it.
+  # Guarded by tests/test_cad_airframe.py::test_wing_captures_the_booms.
+  z_offset_m: 0.008
 
 fuselage:
   length_m: 3.4
@@ -75,6 +89,7 @@ provenance:
   wing.dihedral_deg: assumption
   wing.sweep_le_deg: assumption
   wing.incidence_deg: assumption
+  wing.z_offset_m: assumption
   fuselage.length_m: assumption
   fuselage.max_diameter_m: assumption
   fuselage.stations: assumption

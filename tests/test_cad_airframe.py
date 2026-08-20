@@ -1,6 +1,7 @@
 import pytest
 from argus7.design.schema import load_design
 from argus7.design.geometry import derive_wing, derive_booms, wing_le_x, wing_ac_x, tail_qc_x
+from build123d import Location
 from argus7.cad.model import (
     build_wing, build_fuselage, build_booms, build_tail, build_aircraft,
 )
@@ -139,3 +140,116 @@ def test_full_aircraft_is_valid_and_within_envelope(design):
     assert ac.is_valid  # RULING P12: is_valid is a property, not a method.
     assert (bb.max.Y - bb.min.Y) == pytest.approx(g.span_m, rel=0.03)
     assert (bb.max.X - bb.min.X) < 1.5 * design.fuselage.length_m + design.tail.arm_m
+
+
+# --- FINAL REVIEW C1: the airframe must be ONE connected structure ----------
+# The whole-branch review found build_aircraft returned a Compound of FOUR
+# disjoint solids: (1) fuselage+wing+items, (2) port boom+tail panel,
+# (3) starboard boom+tail panel, (4) the prop disc floating 50 mm aft. The
+# booms -- which carry the entire tail load -- touched nothing at all.
+#
+# The cause was a hardcoded 0.05 m wing z-lift in build_aircraft (typed a
+# second time in to_openscad), which put the wing's lower surface 25.9 mm
+# ABOVE the boom's top surface at the boom station. Ruling P15 had fixed the
+# same class of defect longitudinally (test_booms_carry_both_wing_and_tail
+# checks only x_fwd < x_wing_le and x_aft > x_tail_qc); nobody owned the
+# vertical axis, so the boom "carried" the wing and tail across an air gap.
+#
+# Nothing caught it because none of the existing guards can: is_valid is True
+# for a disjoint Compound, and trimesh.is_watertight is a per-edge manifold
+# test that four separate closed shells pass.
+
+def _wing_lower_z_at_boom_station(design):
+    """Measured lower-surface z of the assembled (lifted) wing at the boom
+    centreline, taken from the built solid with a thin slab intersection --
+    not recomputed from the section formulas, so this cannot agree with the
+    model by sharing its arithmetic."""
+    from build123d import Box, Location
+    bg = derive_booms(design)
+    wing = Location((wing_le_x(design), 0, design.wing.z_offset_m)) * build_wing(design)
+    slab = Location((design.fuselage.length_m, bg.y_station_m, 0)) * \
+        Box(4 * design.fuselage.length_m, 0.002, 4.0)
+    return (wing & slab).bounding_box().min.Z
+
+
+def test_wing_z_offset_reaches_both_geometry_paths(design, tmp_path):
+    """C1: the wing z-lift was a bare 0.05 in build_aircraft AND a second
+    hand-typed 0.05 in to_openscad. Perturbing the YAML field must move BOTH
+    outputs -- a literal surviving in either path shows up here as an output
+    that does not move. Behavioural rather than a source-text scan, so it
+    still holds if the code is reformatted."""
+    from argus7.cad.to_openscad import emit_openscad
+    assert design.wing.z_offset_m == pytest.approx(0.008)
+    moved = design.model_copy(deep=True)
+    moved.wing.z_offset_m = design.wing.z_offset_m + 0.25
+
+    base_z = build_aircraft(design, include_items=False).bounding_box().max.Z
+    moved_z = build_aircraft(moved, include_items=False).bounding_box().max.Z
+    assert moved_z - base_z == pytest.approx(0.25, abs=1e-6), (
+        "build_aircraft ignored design.wing.z_offset_m")
+
+    base_txt = emit_openscad(design, tmp_path / "base.scad").read_text()
+    moved_txt = emit_openscad(moved, tmp_path / "moved.scad").read_text()
+    assert f"{design.wing.z_offset_m:.5f}]) wing()" in base_txt
+    assert f"{moved.wing.z_offset_m:.5f}]) wing()" in moved_txt, (
+        "emit_openscad ignored design.wing.z_offset_m")
+
+
+def test_wing_captures_the_booms(design):
+    """C1: the boom must be structurally let into the wing's lower surface,
+    with real interference volume -- not floating below an air gap.
+
+    Relational, not pinned: the boom's top must sit inside the wing by a
+    usable fraction of its own diameter, and the wing must not reach the boom
+    centreline (which would mean the 90 mm tube is more than half swallowed
+    by a wing only 73.7 mm thick at that station)."""
+    r = design.booms.diameter_m / 2.0
+    wing_lower_z = _wing_lower_z_at_boom_station(design)
+    overlap = r - wing_lower_z
+    assert overlap > 0.010, (
+        f"wing lower surface z={wing_lower_z:.4f} m at the boom station is "
+        f"only {overlap * 1000:.1f} mm into the boom top (z={r:.4f} m) -- "
+        "the boom is not structurally captured")
+    assert wing_lower_z > 0.0, (
+        "the wing reaches below the boom centreline: a 90 mm tube cannot be "
+        "more than half buried in a 73.7 mm thick wing section")
+
+
+def test_structural_load_path_is_continuous(design):
+    """C1: tail -> boom -> wing -> fuselage must be a chain of real solid
+    intersections. Each link is checked explicitly; a single missing link is
+    what produced four disjoint bodies.
+
+    The boom deliberately does NOT touch the fuselage (y_station 0.62 m
+    against a 0.24 m fuselage radius): in a twin-boom layout the booms are
+    carried by the WING, so that zero is pinned here as intended, not as a
+    second gap."""
+    wing = Location((wing_le_x(design), 0, design.wing.z_offset_m)) * build_wing(design)
+    fus, booms, tail = build_fuselage(design), build_booms(design), build_tail(design)
+    assert (tail & booms).volume > 0, "tail panels are not carried by the booms"
+    assert (wing & booms).volume > 0, "booms are not carried by the wing"
+    assert (wing & fus).volume > 0, "wing is not attached to the fuselage"
+    assert (booms & fus).volume == 0, (
+        "booms unexpectedly touch the fuselage -- the twin-boom load path "
+        "runs through the wing")
+
+
+def test_analysis_solid_is_a_single_body(design):
+    """C1: with the illustrative installed items excluded, the airframe is
+    ONE solid. This is the assertion the review found missing: a Compound of
+    four disconnected bodies satisfies is_valid and is_watertight alike."""
+    ac = build_aircraft(design, include_items=False)
+    assert len(ac.solids()) == 1, (
+        f"airframe is {len(ac.solids())} disconnected bodies, not one")
+    assert ac.is_valid is True
+
+
+def test_installed_items_add_exactly_one_free_body(design):
+    """C1: the pusher prop disc sits 50 mm aft of the fuselage tail and is
+    illustrative, not structure, so it is allowed to stay free -- but only
+    because include_items=False can now exclude it. Pin the count so a new
+    floating body cannot be added unnoticed."""
+    ac = build_aircraft(design, include_items=True)
+    assert len(ac.solids()) == 2, (
+        f"{len(ac.solids())} bodies with items included; expected 2 "
+        "(airframe + free prop disc)")

@@ -144,8 +144,10 @@ def emit_openscad(design, path: str | Path) -> Path:
         "    }",
         "}",
         "",
-        f"translate([{wing_le_x(design):.5f}, 0, 0.05]) wing();  "
-        "// 0.05: mirrors build_aircraft's fixed wing z-lift",
+        f"translate([{wing_le_x(design):.5f}, 0, "
+        f"{design.wing.z_offset_m:.5f}]) wing();  "
+        "// z from design.wing.z_offset_m -- FINAL REVIEW C1: this was a "
+        "second hand-typed copy of build_aircraft's 0.05 wing z-lift",
         "fuselage();",
         "booms();",
         "tail();",
