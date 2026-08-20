@@ -4,9 +4,11 @@
 # below (checked by tests/test_geometry_closure.py::
 # test_every_geometry_field_has_provenance) rather than trusting any
 # whole-file claim. Tags:
-#   report-§2    verbatim/unambiguous from docs/argus7_design_report.md
-#                section 2, including its tail-volume inconsistency (see
-#                test_report_stated_tail_volume) — not "fixed" here.
+#   report-§N    verbatim/unambiguous from docs/argus7_design_report.md
+#                section N. §2 is the geometry table, including its
+#                tail-volume inconsistency (see test_report_stated_tail_volume)
+#                — not "fixed" here; §1 is the locked mission definition; §3
+#                is the mass budget; §4 is the aero/performance model.
 #   design_pack-§1  from research/design_pack.md section 1. NOT used below:
 #                that pack describes the 200 kg AR-20 predecessor, a
 #                different aircraft, and none of v1.0's numbers come from it.
@@ -121,3 +123,42 @@ provenance:
   propulsion.reduction_ratio: report-§2
   propulsion.prop_diameter_m: report-§2
   propulsion.prop_rpm: report-§2
+  # FINAL REVIEW M7: masses, mission and aero carried ZERO provenance entries
+  # and the old test did not ask for any. Every tag below was read back
+  # against the report before being written, not inferred from the section
+  # a field happens to live in.
+  masses.airframe: report-§3          # §3 mass budget table, "Airframe structure"
+  masses.powertrain: report-§3        # §3 "Powertrain (dry)"
+  masses.avionics: report-§3          # §3 "Avionics"
+  masses.recovery: report-§3          # §3 "Recovery system"
+  masses.payload: report-§3           # §3 "Payload"
+  masses.fuel: report-§3              # §3 "Fuel", 40.6% of MTOW. This is the
+                                      # number at the centre of the unresolved
+                                      # wing-fuel-volume escalation (README
+                                      # "Known gaps"): the report requires
+                                      # ~120 L in the wing, the wing holds
+                                      # ~50 L usable. Tagged as published;
+                                      # NOT silently reduced to fit.
+  masses.mtow: report-§3              # §3 "MTOW", and the §2 headline row
+  mission.payload_mass_kg: report-§1  # §1 "Total ~50 kg / ~500 W continuous"
+  mission.payload_power_w: report-§1  # §1, same sentence (620 W peak)
+  mission.loiter_altitude_m: report-§4  # NOT §1: §1 locks only the BAND
+                                      # ("loiter band 3,000–4,500 m AGL").
+                                      # 4,000 m is the altitude §4 actually
+                                      # evaluates the performance model at
+                                      # ("loiter 128 km/h heavy → 99 km/h
+                                      # light at 4,000 m"), and the altitude
+                                      # the §0 headline endurance is quoted
+                                      # at. Tagged where the number is, not
+                                      # where the topic is.
+  aero.cd0: report-§4                 # §4 "C_D0 = 0.020 realistic". The
+                                      # report brackets it explicitly: 0.016
+                                      # optimistic clean build, 0.024 dirty
+                                      # with external antennas. 0.020 is the
+                                      # middle figure the endurance numbers
+                                      # were computed at, not a clean-build
+                                      # best case — but the ±20% band is the
+                                      # report's own, and Phase 2's C_D0
+                                      # validation gate is 15% wide.
+  aero.oswald_e: report-§4            # §4 drag polar, "e = 0.85"
+  aero.cl_max: report-§4              # §4 stall constraint, "C_Lmax = 1.6"
