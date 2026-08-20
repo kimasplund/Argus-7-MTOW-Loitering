@@ -1,0 +1,40 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*~
+*.swp
+.vscode/
+.idea/
+
+# Python (analysis scripts, if reconstructed)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# CAD / build output
+*.stl
+*.3mf
+*.amf
+build/
+out/
+
+# Scratch
+*.tmp
+*.bak
+.staging/
+
+# Toolchain (regenerable via scripts/setup_env.sh)
+.venv/
+.venv-cad/
+vendor/
+logs/
+
+# Solver output
+*.vtu
+*.vtk
+*.frd
+*.dat.gz
+aero/cfd/runs/
+opt/runs/
