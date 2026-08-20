@@ -607,6 +607,22 @@ If a printed panel *is* used somewhere (a fairing, a wingtip), it must be filled
 
 The NASA data in §6.2 is a direct endorsement of this method's surface quality. Its problem here is mass and labour, not accuracy.
 
+> **Correction (added post-publication, P1 CAD rebuild, fix round 2):** the
+> "Gross wing volume 0.160 m³" below is the same §2.5 figure built on the
+> 0.68 shape factor already corrected there — see the correction note at
+> the head of §2.5. The true gross volume is 0.1426 m³ (142.6 L), which
+> gives **~5.4 kg of core**, not 6.1 kg (a −0.68 kg change), and a
+> corrected **Total wing ≈ 38.9 kg**, not 39.6 kg. This also flows into
+> §10's build-option comparison table, Option E ("moldless foam core + wet
+> layup + micro"): its quoted Wing total (39.59), kg/m² (10.15) and margin
+> (+7.09, fails) all inherit the same stale constant. At ~38.9 kg, Option E
+> would rank *below* Option C2 (39.24 kg) rather than above it — a ranking
+> change, not just a rounding difference. The table itself is left
+> unedited here (recomputing its "Primary (×1.18)" column for Option E
+> requires re-deriving from this section's own structural method, which is
+> beyond a constant-substitution fix); flagging for a dedicated follow-up
+> pass rather than silently patching one cell of a multi-column table.
+
 Gross wing volume 0.160 m³ [CALC]; at 38 kg/m³ blue/urethane foam that is **6.1 kg of core** — carried permanently, doing structural work only as a shear/stabilising medium. Add ~0.95 kg/m² of wet-layup skin and, critically, **0.55 kg/m² of micro/filler**, which is what it takes to fair a hot-wired core to contour. Total wing ≈ **39.6 kg** (§10) — the second-heaviest option, and the one with the highest labour.
 
 At AR 22 with a 0.26 m tip chord, hot-wiring cores to the accuracy the NASA data assumes is also markedly harder than on a Long-EZ's fatter, shorter-span wing. [EST]
@@ -969,7 +985,7 @@ All figures are [EST], built from task-level estimates and calibrated against pu
 5. **Is the wing deflection acceptable at 14.2% of semi-span at limit load?** This pack flags it (§2.3) but does not resolve it. It needs an aeroelastic look — divergence, flaperon reversal, and the effect of a 4.9° tip washout change at 1 g on the spanwise loading the caps were sized for.
 6. **Continuous-length pultruded strip:** confirm minimum order quantity and price for ≥5 m continuous rectangular strip from DPP/Van Dijk or Compositesplaza. If a 5 m mill order is affordable, the splice problem in §3.4 disappears entirely and option B gets simpler.
 7. **Coupon-test the actual boom tube.** Vendor-quoted compressive strengths that exceed tensile ([4][7]) indicate solver output rather than test. One four-point bend and one torsion test on a 300 mm offcut.
-8. **The wing cannot hold the fuel (§2.5): 56–72 L usable against 120 L required.** This must be resolved before the skin architecture is frozen, because sealed integral tanks and a bonded printed-rib interior are difficult to combine.
+8. **The wing cannot hold the fuel (§2.5, corrected): ~50–64 L usable against 120 L required** — see the correction note at the head of §2.5 (the 56–72 L figure quoted here in earlier drafts used a since-corrected 0.68 shape factor; ~50–64 L is the current figure). This must be resolved before the skin architecture is frozen, because sealed integral tanks and a bonded printed-rib interior are difficult to combine.
 
 **Materials and process**
 
