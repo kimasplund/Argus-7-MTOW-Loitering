@@ -199,3 +199,104 @@ def refine_augmented_lagrangian(x0, k_cal, lo, hi, *, outer=12, inner=150, lr=0.
     with torch.no_grad():
         x = lo + torch.sigmoid(z) * (hi - lo)
     return x.detach(), evaluate_coupled(x.unsqueeze(0), k_cal)
+
+
+# =============================================================================
+# Part-load BSFC and engine right-sizing (added 2026-08-21, gauntlet audit)
+# =============================================================================
+# The audit's second finding: the optimiser was handed BSFC as a free variable
+# bounded at 0.25 kg/kWh, and duly took it. But BSFC is not free -- it is a
+# strong function of LOAD FRACTION, and this aircraft loiters at ~3.4 kW from a
+# 17 kW engine, i.e. **20% load**, where the engine module's own curve gives
+# 411 g/kWh, not 270 and certainly not 250.
+#
+# Fitted to argus7.prop.engine's curve, max error 0.8 g/kWh over 12-100% load:
+#
+#     BSFC(load) = bsfc_full * (0.8471 + 0.1529 / load)
+#
+# Consequence for the published design: 112.8 h at an assumed 270 becomes 74.0 h
+# (3.08 d) at the real part-load value. That is the single largest correction
+# anywhere in this programme.
+#
+# The fix is not to accept the penalty but to let the optimiser CHOOSE the engine.
+# A smaller engine runs at higher load fraction and better BSFC, but must still
+# meet a climb requirement -- which is the real tension, because climb wants
+# ~12-17 kW and loiter wants ~3.4 kW.
+BSFC_A = 0.8471
+BSFC_B = 0.1529
+CLIMB_RATE_MS = 2.0  # minimum sea-level climb rate at MTOW
+PROP_ETA = 0.84
+
+
+def bsfc_at_load(bsfc_full_kg_per_kwh, load_fraction):
+    """Part-load BSFC. `load_fraction` is shaft power over rated power."""
+    lf = torch.clamp(load_fraction, min=0.05, max=1.0)
+    return bsfc_full_kg_per_kwh * (BSFC_A + BSFC_B / lf)
+
+
+def climb_power_required_w(mtow_kg, wing_area_m2, aspect_ratio, cd0, e, cl_max):
+    """Sea-level shaft power for CLIMB_RATE_MS at MTOW, at best-climb speed."""
+    from argus7.mission.atmosphere import isa
+
+    rho = isa(torch.zeros_like(mtow_kg)).density_kgm3
+    w = mtow_kg * 9.80665
+    cl = torch.sqrt(torch.clamp(cd0 * torch.pi * aspect_ratio * e, min=1e-9)) * 1.2
+    cl = torch.minimum(cl, cl_max / 1.3)
+    v = torch.sqrt(2.0 * w / (rho * wing_area_m2 * cl))
+    cd = cd0 + cl**2 / (torch.pi * aspect_ratio * e)
+    drag = 0.5 * rho * v**2 * wing_area_m2 * cd
+    return (drag * v + w * CLIMB_RATE_MS) / PROP_ETA
+
+
+def evaluate_full(x, k_cal, *, payload_kg=50.0, payload_w=500.0, n_steps=120,
+                  span_limit_m=12.0):
+    """The honest model: 8 variables, part-load BSFC, engine sized by the optimiser.
+
+    ``x`` is (N, 8): wing_area, AR, taper, t/c, MTOW, altitude, bsfc_full,
+    engine_rated_kw.
+    """
+    from argus7.mission.sim import loiter_cl, drag_polar, simulate_loiter
+    from argus7.mission.atmosphere import isa
+
+    S, AR, lam, tc, mtow, alt, bsfc_full, p_rated_kw = (x[..., i] for i in range(8))
+
+    cd0 = cd0_from_geometry(S, tc)
+    e = oswald_from_planform(AR, lam)
+    cl_max = torch.full_like(S, 1.6)
+
+    empty = empty_mass_kg(S, AR, lam, mtow, tc, k_cal)
+    # Engine mass scales with rated power; 17 kW ~ 25 kg powertrain in the baseline.
+    empty = empty + (p_rated_kw - 17.0) * (25.0 / 17.0) * 0.6
+    fuel = fuel_available_kg(mtow, empty, payload_kg=payload_kg)
+    tank = wing_fuel_capacity_kg(S, AR, lam, tc)
+    span = torch.sqrt(AR * S)
+
+    # Shaft power at the loiter mid-point, to set the load fraction.
+    rho = isa(alt).density_kgm3
+    cl = loiter_cl(cd0, AR, e, cl_max)
+    cd = drag_polar(cl, cd0, AR, e)
+    w_mid = (mtow - 0.5 * torch.clamp(fuel, min=0.0)) * 9.80665
+    v_mid = torch.sqrt(2.0 * w_mid / (rho * S * cl))
+    shaft_mid = w_mid / (cl / cd) * v_mid / PROP_ETA + payload_w / 0.75
+    load = shaft_mid / (p_rated_kw * 1000.0)
+    bsfc_eff = bsfc_at_load(bsfc_full, load)
+
+    r = simulate_loiter(
+        mass_total_kg=mtow, mass_fuel_kg=torch.clamp(fuel, min=1e-3),
+        wing_area_m2=S, aspect_ratio=AR, cd0=cd0, oswald_e=e, cl_max=cl_max,
+        altitude_m=alt, bsfc_kg_per_kwh=bsfc_eff,
+        payload_power_w=torch.full_like(S, payload_w), n_steps=n_steps,
+    )
+
+    p_climb = climb_power_required_w(mtow, S, AR, cd0, e, cl_max)
+    v_span = torch.clamp(span - span_limit_m, min=0.0) / span_limit_m
+    v_tank = torch.clamp(fuel - tank, min=0.0) / 50.0
+    v_fuel = torch.clamp(-fuel, min=0.0) / 50.0
+    v_climb = torch.clamp(p_climb - p_rated_kw * 1000.0, min=0.0) / 5000.0
+    v_load = torch.clamp(load - 1.0, min=0.0)
+    violation = v_span + v_tank + v_fuel + v_climb + v_load
+
+    return {"endurance_h": r.endurance_h, "cd0": cd0, "oswald_e": e, "fuel_kg": fuel,
+            "tank_kg": tank, "empty_kg": empty, "span_m": span, "load_fraction": load,
+            "bsfc_eff": bsfc_eff, "climb_kw_req": p_climb / 1000.0,
+            "violation": violation, "feasible": violation <= 1e-6}

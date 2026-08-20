@@ -1,37 +1,41 @@
-# ARGUS-7 v2.0 - OPTIMISED DESIGN POINT
+# ARGUS-7 v2.0 - OPTIMISED, MTOW-CONSTRAINED DESIGN POINT
 #
-# Produced by argus7/opt/ on 2026-08-21. NOT a published design: this is the
-# optimiser's output, pending the gauntlet verdict recorded in
-# docs/decisions/2026-08-20-gauntlet-preregistration.md.
+# Produced 2026-08-21 by argus7/opt/ under the honest model: part-load BSFC,
+# engine rating as a design variable against a 2 m/s sea-level climb
+# constraint, and the CORRECTED wing tank model.
 #
-# Endurance 161.5 h (6.73 d) against v1.0's published 4.70 d, and unlike v1.0
-# the fuel physically fits the wing: 123.9 kg required against 123.9 kg
-# capacity. The constraint is EXACTLY ACTIVE, so there is zero ullage margin.
-# Allow the 3-5 percent a real tank needs and this becomes roughly 6.5 d.
+# MTOW capped at 250 kg to stay in the same regulatory band as v1.0, so this is
+# a like-for-like comparison rather than a bigger aeroplane.
 #
-# Altitude fixed to 4000 m at the sponsor's direction (smooth air). The
-# unconstrained optimum was 2500 m at 7.14 d; the constraint costs about 10 h.
+#   published v1.0, honest model : 3.16 d, and INFEASIBLE (needs 101.5 kg of
+#                                  fuel, wing holds 66.1 kg)
+#   this design                  : 4.88 d, feasible with 37.6 kg of tank margin
 #
-# FOUR VARIABLES SIT AT THEIR BOUNDS: wing area (6.0 max), thickness (0.20
-# max), altitude (4000, bottom of the allowed band), BSFC (0.25 min). The
-# pre-registration requires bound-pinning be discounted, not celebrated.
+# The single largest lever is the ENGINE, not the airframe: 17 kW -> 8.15 kW
+# lifts loiter load fraction from 19% to 33% and drops effective BSFC from
+# 425 to 328 g/kWh. v1.0's engine is sized for climb and then spends 122 hours
+# at a fifth of its rating.
+#
+# The climb constraint is exactly active: 8.11 kW required, 8.15 kW installed.
+# NOTE the report's separate finding that the propeller cannot absorb its rated
+# power (C_P 0.911 vs a ~0.25 ceiling) is NOT yet modelled here.
 #
 # Tail area holds v1.0's tail volume coefficient Vh = 0.5765.
 name: ARGUS-7
-variant: v2.0-opt
+variant: v2.0
 mission:
   payload_mass_kg: 50.0
   payload_power_w: 500.0
-  loiter_altitude_m: 4000.0
+  loiter_altitude_m: 4191.0
 wing:
-  area_m2: 6.0
-  aspect_ratio: 18.7401
-  taper_ratio: 0.3
+  area_m2: 5.4564
+  aspect_ratio: 24.3967
+  taper_ratio: 0.3102
   airfoil: FX63-137
   twist_tip_deg: -3.0
   dihedral_deg: 3.0
   sweep_le_deg: 1.0
-  thickness_ratio: 0.2
+  thickness_ratio: 0.1755
   incidence_deg: 2.0
   x_le_frac: 0.22
   z_offset_m: 0.008
@@ -57,7 +61,7 @@ booms:
   clearance_m: 0.15
 tail:
   type: inverted_v
-  area_h_m2: 0.6707
+  area_h_m2: 0.5078
   arm_m: 3.2
   dihedral_deg: -42.0
   taper_ratio: 0.55
@@ -65,21 +69,21 @@ tail:
   panel_aspect_ratio: 3.0
 propulsion:
   engine_displacement_cc: 250.0
-  power_max_kw: 17.0
+  power_max_kw: 8.15
   reduction_ratio: 2.3
   prop_diameter_m: 0.813
   prop_rpm: 2100.0
 masses:
-  airframe: 65.28
-  powertrain: 25.0
+  airframe: 59.39
+  powertrain: 11.98
   avionics: 6.0
   recovery: 7.0
   payload: 50.0
-  fuel: 123.94
-  mtow: 277.21
+  fuel: 100.97
+  mtow: 248.36
 aero:
-  cd0: 0.01607
-  oswald_e: 0.854
+  cd0: 0.01588
+  oswald_e: 0.8211
   cl_max: 1.6
 provenance:
   wing.area_m2: derived
@@ -107,12 +111,12 @@ provenance:
   tail.airfoil: assumption
   tail.panel_aspect_ratio: assumption
   propulsion.engine_displacement_cc: "report-\xA72"
-  propulsion.power_max_kw: "report-\xA72"
+  propulsion.power_max_kw: derived
   propulsion.reduction_ratio: "report-\xA72"
   propulsion.prop_diameter_m: "report-\xA72"
   propulsion.prop_rpm: "report-\xA72"
   masses.airframe: derived
-  masses.powertrain: "report-\xA73"
+  masses.powertrain: derived
   masses.avionics: "report-\xA73"
   masses.recovery: "report-\xA73"
   masses.payload: "report-\xA73"

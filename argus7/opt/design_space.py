@@ -105,14 +105,28 @@ def fuel_available_kg(mtow_kg, empty_kg, payload_kg=50.0):
 
 
 def wing_fuel_capacity_kg(wing_area_m2, aspect_ratio, taper_ratio, thickness_ratio,
-                          *, k_area=0.6062, chord_frac=0.50, span_frac=0.80,
+                          *, k_area=0.6062, chord_frac=0.716, span_frac=0.940,
                           net_frac=0.88, fuel_density_kgl=0.78):
     """Fuel the wing can physically hold.
 
-    This is the constraint that the published design violates: it needs ~120 L and
-    the wing holds ~50 L. `k_area` is the measured FX 63-137 section-area
-    coefficient (shoelace integration), not the NACA-4-digit 0.68 that produced a
-    12.2% error elsewhere in this project.
+    `k_area` is the measured FX 63-137 section-area coefficient (shoelace
+    integration), not the NACA-4-digit 0.68 that produced a 12.2% error elsewhere
+    in this project.
+
+    CORRECTED 2026-08-21 after the gauntlet audit. The earlier version used
+    chord_frac=0.50 and span_frac=0.80, conflating *fraction of chord* with
+    *fraction of section area*, and *fraction of span* with *fraction of volume*.
+    Both are wrong in the conservative direction:
+
+      - a spar box spanning 15-65% chord is 50% of the CHORD but holds **71.6%**
+        of the section area, because thickness is concentrated mid-chord
+      - the inner 80% of a taper-0.30 span holds **94.0%** of wing volume,
+        because volume goes as chord^2 and weights inboard heavily
+
+    Together that understated capacity by **1.68x**, which put the optimiser
+    against a wall in the wrong place: wing area, thickness and taper all pinned
+    at the bounds that relieved a constraint that was never that tight.
+    Verified by numerical integration of the actual aerofoil coordinates.
     """
     span = torch.sqrt(aspect_ratio * wing_area_m2)
     c_root = wing_area_m2 / ((span / 2.0) * (1.0 + taper_ratio))

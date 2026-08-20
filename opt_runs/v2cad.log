@@ -1,0 +1,8 @@
+STEP model/argus7.step
+STL  model/argus7.stl
+SCAD model/argus7_model.scad
+watertight: True
+render figures/cad/argus7_top.png
+render figures/cad/argus7_side.png
+render figures/cad/argus7_front.png
+render figures/cad/argus7_iso.png
