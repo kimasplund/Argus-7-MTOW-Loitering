@@ -1,0 +1,20 @@
+STAGE 1 coupled: 24,000,000 in 2.1s (11.58 M/s), feasible 3,154,453 (13.144%)
+best feasible from DOE: {
+  "wing_area_m2": 5.950674533843994,
+  "aspect_ratio": 20.475296020507812,
+  "taper_ratio": 0.3344346880912781,
+  "thickness_ratio": 0.19820812344551086,
+  "mtow_kg": 266.4478759765625,
+  "altitude_m": 2512.720458984375,
+  "bsfc_kg_per_kwh": 0.2513633966445923,
+  "endurance_h": 166.5192413330078,
+  "cd0": 0.01495104655623436,
+  "oswald_e": 0.8482634425163269,
+  "fuel_kg": 112.11904907226562,
+  "tank_kg": 114.60554504394531,
+  "empty_kg": 104.32882690429688,
+  "span_m": 11.038198471069336,
+  "violation": 0.0,
+  "feasible": true,
+  "endurance_d": 6.938301722208659
+}

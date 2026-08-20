@@ -154,6 +154,53 @@ def test_port_matches_reference_neuralfoil(coords):
     np.testing.assert_allclose(
         got.analysis_confidence, ref["analysis_confidence"], rtol=1e-3, atol=1e-4
     )
+    # Top_Xtr / Bot_Xtr are exposed by PolarResult, so they are part of the
+    # port's contract and must be checked too. They are also the outputs the
+    # alpha-flip swaps (y_unflipped[:, 4] <-> y_flipped[:, 5]); a swap error
+    # there is invisible in CL, CD and CM.
+    np.testing.assert_allclose(got.top_xtr, ref["Top_Xtr"], rtol=0, atol=1e-5)
+    np.testing.assert_allclose(got.bot_xtr, ref["Bot_Xtr"], rtol=0, atol=1e-5)
+
+
+def test_ncrit_and_forced_transition_are_plumbed_through(coords):
+    """n_crit and xtr_upper/xtr_lower must reach the network, correctly scaled.
+
+    Nothing else in this file varies them, so a wrong scaling on the n_crit
+    input column -- or an xtr_upper/xtr_lower swap in the alpha-flip -- would
+    pass every other test. The two xtr cases are deliberately asymmetric so a
+    swap cannot cancel out.
+    """
+    import neuralfoil as nf
+
+    alpha = np.linspace(-4.0, 10.0, 15)
+    cases = [
+        dict(n_crit=4.0, xtr_upper=1.0, xtr_lower=1.0),
+        dict(n_crit=13.0, xtr_upper=1.0, xtr_lower=1.0),
+        dict(n_crit=9.0, xtr_upper=0.15, xtr_lower=1.0),
+        dict(n_crit=9.0, xtr_upper=1.0, xtr_lower=0.30),
+    ]
+    for kw in cases:
+        ref = nf.get_aero_from_coordinates(
+            coordinates=coords, alpha=alpha, Re=RE_ROOT, model_size="xxxlarge", **kw
+        )
+        got = polar(coords, alpha=alpha, Re=RE_ROOT, model_size="xxxlarge", **kw)
+        np.testing.assert_allclose(got.CL, ref["CL"], rtol=1e-4, atol=1e-5)
+        np.testing.assert_allclose(got.CD, ref["CD"], rtol=1e-3, atol=1e-6)
+        np.testing.assert_allclose(got.top_xtr, ref["Top_Xtr"], rtol=0, atol=1e-5)
+        np.testing.assert_allclose(got.bot_xtr, ref["Bot_Xtr"], rtol=0, atol=1e-5)
+
+    # ... and they must actually change the answer, or the agreement above
+    # would only prove that both codes ignore them.
+    free = polar(coords, alpha=4.0, Re=RE_ROOT, n_crit=9.0)
+    tripped = polar(coords, alpha=4.0, Re=RE_ROOT, n_crit=9.0, xtr_upper=0.05)
+    dirty = polar(coords, alpha=4.0, Re=RE_ROOT, n_crit=4.0)
+    print("\n[transition] alpha=4, Re=%.0f: CD free = %.5f, xtr_u=0.05 -> %.5f, "
+          "Ncrit 4 -> %.5f" % (RE_ROOT, float(free.CD), float(tripped.CD),
+                               float(dirty.CD)))
+    assert float(tripped.CD) > float(free.CD) * 1.05, "forcing transition at " \
+        "5% chord must cost real drag"
+    assert float(dirty.CD) > float(free.CD), "Ncrit 4 must transition earlier " \
+        "than Ncrit 9 and so cost more drag"
 
 
 def test_port_matches_reference_over_re_range(coords):
@@ -230,6 +277,14 @@ def test_surrogate_is_cached_across_calls(coords):
     assert a is b
     assert get_surrogate(coords, model_size="medium") is not a
 
+    # The same device named three different ways must not get three resident
+    # copies of the weights -- avoiding that duplication is the whole point.
+    name = "cuda" if torch.cuda.is_available() else "cpu"
+    c1 = get_surrogate(coords, model_size="xxxlarge", device=None)
+    c2 = get_surrogate(coords, model_size="xxxlarge", device=name)
+    c3 = get_surrogate(coords, model_size="xxxlarge", device=torch.device(name))
+    assert c1 is c2 is c3
+
 
 def test_surrogate_cache_is_bounded(coords):
     """A geometry-varying optimiser must not accumulate GPU weight sets."""
@@ -252,6 +307,34 @@ def test_cl_monotonic_with_alpha_in_linear_range(surrogate):
     slope = np.polyfit(alpha, r.CL, 1)[0]
     print("\n[linear range] dCL/dalpha = %.4f /deg (thin-airfoil 0.110)" % slope)
     assert 0.08 < slope < 0.16
+
+
+def test_cd_falls_monotonically_with_reynolds_number(surrogate):
+    """Profile drag must fall as Re rises -- across the whole loiter range.
+
+    This is the one piece of physics the wing sweep and the propeller sweep
+    both lean on (the blade sections run at a fraction of the wing's Re), and
+    nothing else here varies Re against a physical expectation. RE_MID and
+    RE_ROOT are the two Reynolds numbers at which the programme's XFOIL
+    transition results were verified, so the pair is checked explicitly as
+    well as the general trend.
+    """
+    Re = np.geomspace(1.0e5, 5.0e6, 25)
+    r = surrogate.polar(alpha=2.5, Re=Re)
+    dCD = np.diff(r.CD)
+    assert np.all(dCD < 0.0), f"CD not monotonic in Re: max dCD = {dCD.max()}"
+
+    mid = surrogate.polar(alpha=2.5, Re=RE_MID)
+    root = surrogate.polar(alpha=2.5, Re=RE_ROOT)
+    print("\n[Re trend] alpha=2.5: CD(Re %.0f) = %.5f -> CD(Re %.0f) = %.5f "
+          "(%.1f%% lower); Top_Xtr %.3f -> %.3f"
+          % (RE_MID, float(mid.CD), RE_ROOT, float(root.CD),
+             100.0 * (1.0 - float(root.CD) / float(mid.CD)),
+             float(mid.top_xtr), float(root.top_xtr)))
+    assert float(root.CD) < float(mid.CD)
+    # Transition must also move forward as Re rises -- the mechanism behind
+    # the drag trend, not just its symptom.
+    assert float(root.top_xtr) < float(mid.top_xtr)
 
 
 def test_cm_is_strongly_negative_as_established(surrogate):
@@ -343,7 +426,14 @@ def test_throughput_benchmark(surrogate, coords):
     print("  speed-up: %.1fx" % (rate / ref_rate))
 
     assert r.CL.shape == (n,)
-    floor = 20_000.0 if surrogate.device.type == "cuda" else 2_000.0
+    # The floor has to be close enough to the measured rate to catch a real
+    # regression. Measured on the RTX 3500 Ada: 1.2e6-1.6e6 evals/s on an idle
+    # card, 4.4e5 with another agent's CUDA job competing for it; the same
+    # batch through torch on the CPU manages 5.2e4. 1.5e5 therefore sits ~3x
+    # above the CPU-fallback rate -- so "it silently stopped using the GPU"
+    # still fails -- while leaving 3x headroom under contention. The CPU floor
+    # keeps the same ratio to the ~5e4 measured there.
+    floor = 150_000.0 if surrogate.device.type == "cuda" else 15_000.0
     assert rate > floor, f"only {rate:.0f} evals/s on {surrogate.device}"
 
 
@@ -439,6 +529,21 @@ def test_validate_against_xfoil_accepts_an_injected_runner(coords):
     assert rows[0]["CL_xfoil"] == 1.0
     assert rows[0]["dCD"] == pytest.approx(rows[0]["CD_neural"] - 0.01)
     assert rows[0]["dCD_rel"] == pytest.approx((rows[0]["CD_neural"] - 0.01) / 0.01)
+
+
+def test_a_runner_that_omits_convergence_is_not_silently_trusted(coords):
+    """XFOIL prints plausible CL/CD/Cm for points that never converged.
+
+    So a runner that says nothing about convergence must be recorded as NOT
+    converged; defaulting the missing key to True would quietly promote
+    unconverged XFOIL output into the reference side of the comparison.
+    """
+    def silent(airfoil_name, alphas, Re, n_crit, n_panels):
+        return [{"CL": 1.0, "CD": 0.01, "CM": -0.2} for _ in alphas]
+
+    rows = validate_against_xfoil("fx63137", alpha=(2.0, 4.0), Re=RE_ROOT,
+                                  runner=silent)
+    assert all(row["converged"] is False for row in rows)
 
 
 def test_validate_against_xfoil_rejects_a_short_runner_result(coords):

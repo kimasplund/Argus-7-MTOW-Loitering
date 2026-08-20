@@ -1,2 +1,21 @@
 mass model calibrated k=4.22574
 STAGE 1: 8,000,000 in 1.0s (8.05 M/s), feasible 1,051,562 (13.145%)
+STAGE 2 feasible: {
+  "wing_area_m2": 5.999991416931152,
+  "aspect_ratio": 23.998212814331055,
+  "taper_ratio": 0.3000979423522949,
+  "thickness_ratio": 0.19998332858085632,
+  "mtow_kg": 293.99078369140625,
+  "altitude_m": 2503.380859375,
+  "cd0": 0.015315106138586998,
+  "oswald_e": 0.9197690486907959,
+  "bsfc_kg_per_kwh": 0.250003844499588,
+  "endurance_h": 208.6508026123047,
+  "endurance_d": 8.693783442179361,
+  "fuel_kg": 135.518310546875,
+  "tank_capacity_kg": 109.50495910644531,
+  "empty_kg": 108.47246551513672,
+  "span_m": 11.999545097351074,
+  "feasible": false,
+  "violation": 0.5202670097351074
+}

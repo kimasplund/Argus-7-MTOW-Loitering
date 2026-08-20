@@ -22,6 +22,7 @@ from argus7.aero.xfoil_driver import (
     DEFAULT_PANELS,
     DUMP_COLUMNS,
     H_COLUMN,
+    H_LAMINAR_SEPARATION,
     H_TURBULENT,
     MIN_PANELS,
     XFoilError,
@@ -94,10 +95,13 @@ def test_panel_floor_is_inclusive_and_set_where_documented():
         run_xfoil(AIRFOIL, RE_ROOT, cl=CL_LOITER, n_panels=MIN_PANELS - 1)
     assert "279" in str(exc.value)
     # MIN_PANELS itself must pass the guard: the failure it raises for a
-    # missing operating point proves it got past the panel check.
+    # missing operating point proves it got past the panel check. The
+    # assertion has to name a phrase that appears ONLY in the cl/alpha
+    # error -- "cl" alone also matches the panel error, via "cleanly".
     with pytest.raises(XFoilError) as exc2:
         run_xfoil(AIRFOIL, RE_ROOT, n_panels=MIN_PANELS)
-    assert "cl" in str(exc2.value).lower()
+    assert "exactly one of" in str(exc2.value)
+    assert "n_panels" not in str(exc2.value)
 
 
 @pytest.mark.parametrize("bad", [
@@ -259,6 +263,35 @@ def test_transition_from_dump_ignores_every_other_column():
     assert lo == pytest.approx(1.0)
 
 
+def test_x_tr_of_one_is_ambiguous_and_the_result_says_which(tmp_path):
+    """H never below 2.0 means EITHER all-laminar OR separated. Not the same.
+
+    Built as two synthetic dumps that differ only in the peak H on the upper
+    surface: one stays at 2.5 (a laminar run), the other reaches 20 (a
+    boundary layer that separated and never came back). transition_from_dump
+    reports 1.0 for both -- that is the ambiguity -- and separated_upper
+    resolves it.
+    """
+    laminar = _synthetic_dump()
+    separated = _synthetic_dump()
+    separated[3:8, H_COLUMN] = 20.0          # upper surface, aft of the LE
+    assert transition_from_dump(laminar)[0] == pytest.approx(1.0)
+    assert transition_from_dump(separated)[0] == pytest.approx(1.0)
+
+    def _result(dump):
+        return XFoilResult(
+            airfoil=AIRFOIL, reynolds=RE_ROOT, mach=0.0, ncrit=9, n_panels=21,
+            mode="cl", alpha_deg=0.0, cl=1.0, cd=0.01, cdf=0.005, cdp=0.005,
+            cm=-0.2, x_tr_upper=1.0, x_tr_lower=1.0, xtr_onset_upper=0.1,
+            xtr_onset_lower=0.1, converged=True, dump=dump,
+            wake=np.empty((0, 8)), log="")
+
+    assert _result(laminar).separated_upper is False
+    assert _result(separated).separated_upper is True
+    assert _result(separated).h_max_upper == pytest.approx(20.0)
+    assert _result(laminar).h_max_upper == pytest.approx(2.5)
+
+
 def test_transition_from_dump_rejects_a_too_narrow_dump():
     with pytest.raises(XFoilError):
         transition_from_dump(np.zeros((10, 6)))
@@ -387,6 +420,32 @@ def test_panel_refinement_is_monotone_then_converged():
     # everything below it is not.
     assert abs(xtr[160] - xtr[300]) > 0.01
     assert abs(xtr[200] - xtr[300]) > 0.01
+
+
+@pytest.mark.slow
+def test_a_separated_low_re_point_is_not_reported_as_fully_laminar():
+    """The real trap behind the x_tr == 1.0 fallback, pinned.
+
+    FX 63-137 at Re 1e5 and C_L 1.0 transitions at 13.6% chord and then
+    separates without reattaching: peak H ~20, c_d ~0.16 (seventeen times the
+    loiter value). XFOIL reports the point as converged and the H < 2.0
+    criterion never fires, so x_tr_upper is 1.0. Anything that reads that as
+    a laminar fraction gets 100% laminar flow on a stalled section.
+    """
+    # max_iter well above the 296 Newton steps this point actually needs:
+    # at the DEFAULT_MAX_ITER of 300 it converges with four iterations to
+    # spare, which is too little headroom to pin a regression test on.
+    r = run_xfoil(AIRFOIL, 1.0e5, cl=1.0, n_panels=300, ncrit=9, max_iter=600)
+    assert r.converged                       # XFOIL is perfectly happy
+    assert r.x_tr_upper == pytest.approx(1.0)
+    assert r.xtr_onset_upper < 0.25          # it transitioned near the LE
+    assert r.h_max_upper > 10.0              # and then separated
+    assert r.cd > 0.05                       # at enormous cost
+    assert r.separated_upper is True         # the flag that says so
+    # The healthy loiter point must NOT trip the same flag.
+    good = run_xfoil(AIRFOIL, RE_ROOT, cl=CL_LOITER, n_panels=300, ncrit=9)
+    assert good.separated_upper is False and good.separated_lower is False
+    assert good.h_max_upper < H_LAMINAR_SEPARATION
 
 
 @pytest.mark.slow

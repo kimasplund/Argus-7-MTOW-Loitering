@@ -44,6 +44,33 @@ exists to measure that gap at a handful of points and report it, not to hide it.
 Every result also carries `analysis_confidence`; anything below
 CONFIDENCE_WARN_THRESHOLD is flagged in `PolarResult.warnings` rather than
 silently trusted.
+
+THE SIZE OF THAT GAP, MEASURED (read this before using CD)
+----------------------------------------------------------
+FX 63-137, Re 992372, Ncrit 9, XFOIL at N=300 panels, alpha -4 to +12 deg.
+NeuralFoil is SYSTEMATICALLY OPTIMISTIC on profile drag at every single point:
+
+    alpha   -4     -2      0      2      4      6      8      9     10     12
+    dCD    -4.7% -13.8%  -1.8%  -4.5%  -8.5% -15.0% -17.8% -15.9% -12.8%  -6.2%
+    dCL    +.014  +.027  +.019  +.023  +.030  +.047  +.079  +.075  +.057  +.026
+
+(alpha = 2 is XFOIL's own non-converged point -- it limit-cycles at rms 3e-3
+for all 300 iterations while still printing plausible coefficients -- so treat
+that column as indicative only. Every other column converged to rms < 3e-5.)
+
+The error is worst (about -18% in CD, +0.08 in CL) around alpha 8, i.e. near
+CL 1.7, and it is NOT monotonic in alpha -- it turns back over above alpha 8,
+so it cannot be extrapolated from a low-alpha sample. A drag build-up that
+takes this module's 2-D CD at face value under-predicts section profile drag
+by roughly 5-15% over the whole useful range, including the loiter CL of 1.21.
+
+`analysis_confidence` DOES NOT DETECT THIS. It is a Mahalanobis distance from
+the training distribution -- a measure of "have I seen inputs like these", not
+"is this answer accurate". Confidence stays between 0.954 and 0.975 across
+every row of the table above, including the -17.8% one. High confidence means
+NeuralFoil is interpolating, not that it is right; low confidence is a hard
+stop, but its absence is not a warranty. Anything that needs profile drag to
+better than ~15% must go to `argus7.aero.xfoil_driver`, not to this module.
 """
 
 from __future__ import annotations

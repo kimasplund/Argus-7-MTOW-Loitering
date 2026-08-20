@@ -1,0 +1,272 @@
+[
+  {
+    "AR": 14,
+    "taper": 0.3,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9882
+  },
+  {
+    "AR": 14,
+    "taper": 0.3,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9688
+  },
+  {
+    "AR": 14,
+    "taper": 0.3,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9389
+  },
+  {
+    "AR": 14,
+    "taper": 0.45,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9928
+  },
+  {
+    "AR": 14,
+    "taper": 0.45,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9889
+  },
+  {
+    "AR": 14,
+    "taper": 0.45,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9722
+  },
+  {
+    "AR": 14,
+    "taper": 0.6,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9839
+  },
+  {
+    "AR": 14,
+    "taper": 0.6,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9932
+  },
+  {
+    "AR": 14,
+    "taper": 0.6,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9889
+  },
+  {
+    "AR": 18,
+    "taper": 0.3,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9836
+  },
+  {
+    "AR": 18,
+    "taper": 0.3,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9617
+  },
+  {
+    "AR": 18,
+    "taper": 0.3,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9272
+  },
+  {
+    "AR": 18,
+    "taper": 0.45,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9866
+  },
+  {
+    "AR": 18,
+    "taper": 0.45,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9837
+  },
+  {
+    "AR": 18,
+    "taper": 0.45,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9651
+  },
+  {
+    "AR": 18,
+    "taper": 0.6,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9739
+  },
+  {
+    "AR": 18,
+    "taper": 0.6,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9872
+  },
+  {
+    "AR": 18,
+    "taper": 0.6,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9838
+  },
+  {
+    "AR": 22,
+    "taper": 0.3,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9792
+  },
+  {
+    "AR": 22,
+    "taper": 0.3,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9555
+  },
+  {
+    "AR": 22,
+    "taper": 0.3,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9176
+  },
+  {
+    "AR": 22,
+    "taper": 0.45,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9804
+  },
+  {
+    "AR": 22,
+    "taper": 0.45,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9786
+  },
+  {
+    "AR": 22,
+    "taper": 0.45,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9588
+  },
+  {
+    "AR": 22,
+    "taper": 0.6,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9643
+  },
+  {
+    "AR": 22,
+    "taper": 0.6,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9811
+  },
+  {
+    "AR": 22,
+    "taper": 0.6,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9789
+  },
+  {
+    "AR": 26,
+    "taper": 0.3,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9751
+  },
+  {
+    "AR": 26,
+    "taper": 0.3,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9502
+  },
+  {
+    "AR": 26,
+    "taper": 0.3,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9098
+  },
+  {
+    "AR": 26,
+    "taper": 0.45,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9745
+  },
+  {
+    "AR": 26,
+    "taper": 0.45,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9739
+  },
+  {
+    "AR": 26,
+    "taper": 0.45,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9534
+  },
+  {
+    "AR": 26,
+    "taper": 0.6,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9553
+  },
+  {
+    "AR": 26,
+    "taper": 0.6,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9752
+  },
+  {
+    "AR": 26,
+    "taper": 0.6,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9743
+  },
+  {
+    "AR": 30,
+    "taper": 0.3,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9713
+  },
+  {
+    "AR": 30,
+    "taper": 0.3,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9455
+  },
+  {
+    "AR": 30,
+    "taper": 0.3,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9033
+  },
+  {
+    "AR": 30,
+    "taper": 0.45,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.9689
+  },
+  {
+    "AR": 30,
+    "taper": 0.45,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9694
+  },
+  {
+    "AR": 30,
+    "taper": 0.45,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9486
+  },
+  {
+    "AR": 30,
+    "taper": 0.6,
+    "twist_tip": 0.0,
+    "e_inviscid": 0.947
+  },
+  {
+    "AR": 30,
+    "taper": 0.6,
+    "twist_tip": -3.0,
+    "e_inviscid": 0.9696
+  },
+  {
+    "AR": 30,
+    "taper": 0.6,
+    "twist_tip": -6.0,
+    "e_inviscid": 0.9701
+  }
+]

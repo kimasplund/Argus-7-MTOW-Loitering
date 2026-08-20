@@ -64,11 +64,24 @@ Transition convention
 ``x_tr_upper`` / ``x_tr_lower`` are the points at which the shape factor H
 first falls below :data:`H_TURBULENT` moving aft from the leading edge, i.e.
 where the boundary layer is *fully turbulent*. This is deliberately not
-XFOIL's e^N transition *onset*, which lies 3-8 points of chord ahead of it
-and is markedly more panel-density sensitive. The H-based point is the more
-stable number and it is the physically correct boundary for anything that
-needs a developed turbulent layer. Both are reported: the e^N onset is
-available as ``xtr_onset_upper`` / ``xtr_onset_lower``.
+XFOIL's e^N transition *onset*, which lies ahead of it (3.2 points of chord
+at the root loiter point, 4.5 at the tip, but only 0.7 at C_L 1.7 -- the gap
+is not a constant) and is markedly more panel-density sensitive. The H-based
+point is the more stable number and it is the physically correct boundary for
+anything that needs a developed turbulent layer. Both are reported: the e^N
+onset is available as ``xtr_onset_upper`` / ``xtr_onset_lower``.
+
+**x_tr == 1.0 is ambiguous and must be disambiguated.** H never falling below
+:data:`H_TURBULENT` on a surface means one of two opposite things: the run is
+genuinely laminar to the trailing edge, or the boundary layer transitioned and
+then separated without reattaching, so H rises instead of falling. The second
+case is real on this section at low Reynolds number -- ``run_xfoil("fx63137",
+1e5, cl=1.0)`` returns ``converged=True``, ``x_tr_upper == 1.0`` and
+``xtr_onset_upper == 0.136`` with a peak H of 20.4 and c_d = 0.156 (17x the
+loiter value). Use :attr:`XFoilResult.separated_upper` /
+:attr:`~XFoilResult.separated_lower`, which are exactly this distinction, or
+read :attr:`~XFoilResult.h_max_upper` yourself. Never take ``x_tr == 1.0`` as
+"100% laminar" without checking.
 """
 from __future__ import annotations
 
@@ -89,6 +102,7 @@ __all__ = [
     "MIN_PANELS",
     "DEFAULT_PANELS",
     "H_TURBULENT",
+    "H_LAMINAR_SEPARATION",
     "XFoilError",
     "XFoilResult",
     "run_xfoil",
@@ -122,6 +136,15 @@ DEFAULT_PANELS = 300
 #: and falls to ~1.4-1.9 once turbulent; 2.0 is the standard dividing line
 #: and is the criterion used for every published ARGUS-7 x_tr figure.
 H_TURBULENT = 2.0
+
+#: Shape factor above which a boundary layer that never reached
+#: :data:`H_TURBULENT` is taken to have separated rather than stayed laminar.
+#: Laminar separation is conventionally placed at H = 3.5-4.0 (Thwaites'
+#: criterion gives H ~ 3.55 at zero wall shear; Cebeci & Bradshaw quote
+#: 3.5-4.0). 4.0 is chosen because the attached reference case measures a
+#: peak H of 3.22 on the upper surface, and the separated Re 1e5 case
+#: measures 20.4 -- the threshold is nowhere near either.
+H_LAMINAR_SEPARATION = 4.0
 
 #: PPAR "TE/LE panel density ratio". 1.0 (uniform) is part of the verified
 #: sequence; XFOIL's own default of 0.15 starves the trailing edge.
@@ -210,8 +233,50 @@ class XFoilResult:
 
     @property
     def laminar_fraction_upper(self) -> float:
-        """Fraction of upper-surface chord ahead of the fully-turbulent point."""
+        """Fraction of upper-surface chord ahead of the fully-turbulent point.
+
+        Meaningless when :attr:`separated_upper` is true: the surface never
+        reaches H < 2 because it separated, not because it stayed laminar,
+        and this property would then read 1.0 on a stalled section. Check
+        :attr:`separated_upper` first.
+        """
         return self.x_tr_upper
+
+    def _surface_h(self, upper: bool) -> np.ndarray:
+        """Shape factor along one surface, leading edge -> trailing edge."""
+        dump = np.asarray(self.dump, dtype=float)
+        le = int(np.argmin(dump[:, X_COLUMN]))
+        side = dump[:le + 1][::-1] if upper else dump[le:]
+        return side[:, H_COLUMN]
+
+    @property
+    def h_max_upper(self) -> float:
+        """Peak shape factor on the upper surface (3.2 attached, >10 separated)."""
+        return float(self._surface_h(True).max())
+
+    @property
+    def h_max_lower(self) -> float:
+        """Peak shape factor on the lower surface."""
+        return float(self._surface_h(False).max())
+
+    @property
+    def separated_upper(self) -> bool:
+        """True when ``x_tr_upper`` is 1.0 because the flow separated.
+
+        The H < :data:`H_TURBULENT` criterion returns 1.0 both for a surface
+        that is genuinely laminar to the trailing edge and for one that
+        transitioned and then separated without reattaching -- opposite
+        physics, identical number. This separates them: no turbulent station
+        anywhere *and* a peak H past :data:`H_LAMINAR_SEPARATION`.
+        """
+        h = self._surface_h(True)
+        return bool((h >= H_TURBULENT).all() and h.max() > H_LAMINAR_SEPARATION)
+
+    @property
+    def separated_lower(self) -> bool:
+        """As :attr:`separated_upper`, for the lower surface."""
+        h = self._surface_h(False)
+        return bool((h >= H_TURBULENT).all() and h.max() > H_LAMINAR_SEPARATION)
 
 
 # --- Input validation -----------------------------------------------------
@@ -508,9 +573,13 @@ def transition_from_dump(dump: np.ndarray,
     order (trailing edge -> upper -> leading edge -> lower -> trailing edge).
     Each surface is walked from the leading edge aft and the first station
     whose shape factor H (column index 7) has dropped below the threshold is
-    returned. A surface that never crosses the threshold is laminar to the
-    trailing edge and returns 1.0, which is the correct upper limit for any
-    integral over the turbulent run.
+    returned. A surface that never crosses the threshold returns 1.0.
+
+    Beware that 1.0 carries two opposite meanings: a run that really is
+    laminar to the trailing edge, and one that transitioned and then
+    separated without reattaching, so H climbs away from the threshold
+    instead of falling through it. This function cannot tell them apart from
+    a single number -- :attr:`XFoilResult.separated_upper` can, and does.
     """
     dump = np.asarray(dump, dtype=float)
     if dump.ndim != 2 or dump.shape[1] <= H_COLUMN:

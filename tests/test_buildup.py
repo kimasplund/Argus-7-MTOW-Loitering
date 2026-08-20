@@ -269,6 +269,27 @@ def test_form_factors_are_in_published_ranges(bu):
     assert 1.05 < bu.component("fuselage").form_factor < 1.30
     assert 1.00 < bu.component("booms").form_factor < 1.05
 
+    # ADVERSARIAL REVIEW: the bands above are too wide to catch a wrong
+    # FORMULA -- dropping the 100(t/c)^4 term from Raymer eq. 12.30 moves the
+    # wing FF only to 1.2671, still inside 1.20-1.45, and changes C_D0 by
+    # -1.8%. Pin each form factor against its correlation evaluated by hand
+    # from the measured section geometry, so the term structure is guarded.
+    t_c, x_tc = 0.1371167338648635, 0.308            # measured, FX 63-137
+    assert bu.component("wing").form_factor == pytest.approx(
+        1 + 0.6 / x_tc * t_c + 100 * t_c ** 4, rel=1e-9)   # = 1.3024583
+    t_t, x_t = 0.10000854787174769, 0.297            # measured, NACA 0010
+    assert bu.component("tail").form_factor == pytest.approx(
+        1 + 0.6 / x_t * t_t + 100 * t_t ** 4, rel=1e-9)    # = 1.2120409
+    f_fus = 3.4 / 0.48                               # Raymer eq. 12.31
+    assert bu.component("fuselage").form_factor == pytest.approx(
+        1 + 60 / f_fus ** 3 + f_fus / 400, rel=1e-9)       # = 1.1865
+    f_b = 3.645618 / 0.09                            # Hoerner slender body
+    assert bu.component("booms").form_factor == pytest.approx(
+        1 + 1.5 / f_b ** 1.5 + 7 / f_b ** 3, rel=1e-4)     # = 1.00592
+    # and the boom must NOT be on Raymer's fuselage correlation, which is out
+    # of its fitted range at f = 40 and would read 1.102
+    assert bu.component("booms").form_factor < 1.05 < 1 + 60 / f_b ** 3 + f_b / 400
+
 
 def test_wing_transition_defaults_to_the_verified_xfoil_result(design, bu):
     """The whole point of the module: x_tr 0.5023 (root) / 0.6051 (tip),
@@ -278,6 +299,20 @@ def test_wing_transition_defaults_to_the_verified_xfoil_result(design, bu):
     assert B.X_TR_WING_TIP == pytest.approx(0.6051, abs=1e-4)
     lam = bu.component("wing").laminar_fraction
     assert 0.50 < lam < 0.61, lam
+
+    # ADVERSARIAL REVIEW: everything above still passes if the module ignores
+    # X_TR_WING_TIP entirely and runs the whole span at the root value (the
+    # area-weighted mean is then 0.5023, still inside 0.50-0.61). The spanwise
+    # VARIATION is the feature, so pin it directly.
+    root_only = B.parasite_buildup(design, x_tr_wing=(B.X_TR_WING_ROOT,) * 2)
+    tip_only = B.parasite_buildup(design, x_tr_wing=(B.X_TR_WING_TIP,) * 2)
+    assert root_only.cd0 > bu.cd0 > tip_only.cd0, "tip transition value is unused"
+    # the area-weighted mean must lie strictly INSIDE the two endpoints, and be
+    # biased toward the root because the inboard strips carry more area
+    assert B.X_TR_WING_ROOT < lam < B.X_TR_WING_TIP
+    assert lam < 0.5 * (B.X_TR_WING_ROOT + B.X_TR_WING_TIP), (
+        f"area-weighted transition {lam:.4f} should sit inboard of the "
+        f"midpoint {0.5 * (B.X_TR_WING_ROOT + B.X_TR_WING_TIP):.4f}")
 
 
 def test_laminar_fraction_moves_cd0_the_right_way_by_a_sane_amount(design, flow):
