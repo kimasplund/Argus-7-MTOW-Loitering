@@ -59,11 +59,8 @@ def build_fuselage(design) -> Part:
     hull. loft blends smoothly between stations and can bulge slightly
     beyond the max declared radius; that is expected."""
     L, R = design.fuselage.length_m, design.fuselage.max_diameter_m / 2.0
-    # (x_fraction, radius_fraction) - nose, max section, aft taper to engine
-    stations = [(0.00, 0.15), (0.08, 0.62), (0.22, 1.00), (0.55, 0.96),
-                (0.80, 0.70), (1.00, 0.34)]
     faces = [Plane(origin=(xf * L, 0, 0), z_dir=(1, 0, 0)) * Circle(max(rf * R, 1e-3))
-             for xf, rf in stations]
+             for xf, rf in design.fuselage.stations]
     return loft(faces)
 
 
@@ -106,7 +103,7 @@ def build_tail(design) -> Part:
     gam = math.radians(design.tail.dihedral_deg)          # negative = inverted
     panel_area = design.tail.area_h_m2 / (2.0 * math.cos(gam) ** 2)
     lam = design.tail.taper_ratio
-    panel_span = math.sqrt(panel_area * 3.0)              # AR 3 tail panel
+    panel_span = math.sqrt(panel_area * design.tail.panel_aspect_ratio)
     c_root = 2 * panel_area / (panel_span * (1 + lam))
     mac = (2.0 / 3.0) * c_root * (1.0 + lam + lam ** 2) / (1.0 + lam)
     x_le = tail_qc_x(design) - 0.25 * mac                 # unswept: LE constant across span

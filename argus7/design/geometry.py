@@ -74,12 +74,14 @@ def derive_booms(design) -> BoomGeometry:
     booms.length_m was deleted as a Design field: its old value, 3.2 m,
     came from the defective SCAD this phase replaces, not from any report,
     and cannot physically span from the wing to the tail. Instead the boom
-    is sized to actually carry both: it starts just ahead of the wing root
-    LE and ends just aft of the tail quarter-chord.
+    is sized to actually carry both: it starts booms.clearance_m ahead of
+    the wing root LE and ends booms.clearance_m aft of the tail
+    quarter-chord.
     """
     g = derive_wing(design.wing)
-    x_fwd = wing_le_x(design) - 0.15
-    x_aft = tail_qc_x(design) + 0.15
+    clearance = design.booms.clearance_m
+    x_fwd = wing_le_x(design) - clearance
+    x_aft = tail_qc_x(design) + clearance
     y_station_m = design.booms.y_station_frac * (g.span_m / 2.0)
     return BoomGeometry(x_fwd=x_fwd, x_aft=x_aft,
                          length_m=x_aft - x_fwd, y_station_m=y_station_m)

@@ -44,10 +44,21 @@ wing:
   thickness_ratio: 0.137
   incidence_deg: 2.0
 
-fuselage: {length_m: 3.4, max_diameter_m: 0.48}
-booms:    {diameter_m: 0.09, y_station_frac: 0.134}
+fuselage:
+  length_m: 3.4
+  max_diameter_m: 0.48
+  # (x_fraction, radius_fraction) OML loft stations, nose to tail.
+  stations:
+    - [0.00, 0.15]
+    - [0.08, 0.62]
+    - [0.22, 1.00]
+    - [0.55, 0.96]
+    - [0.80, 0.70]
+    - [1.00, 0.34]
+booms:    {diameter_m: 0.09, y_station_frac: 0.134, clearance_m: 0.15}
 tail:     {type: inverted_v, area_h_m2: 0.31, arm_m: 3.2,
-           dihedral_deg: -42.0, taper_ratio: 0.55, airfoil: NACA0010}
+           dihedral_deg: -42.0, taper_ratio: 0.55, airfoil: NACA0010,
+           panel_aspect_ratio: 3.0}
 propulsion: {engine_displacement_cc: 250.0, power_max_kw: 17.0,
              reduction_ratio: 2.3, prop_diameter_m: 0.813, prop_rpm: 2100.0}
 masses:   {airframe: 60.5, powertrain: 25.0, avionics: 6.0, recovery: 7.0,
@@ -66,14 +77,17 @@ provenance:
   wing.incidence_deg: assumption
   fuselage.length_m: assumption
   fuselage.max_diameter_m: assumption
+  fuselage.stations: assumption
   booms.diameter_m: assumption
   booms.y_station_frac: assumption
+  booms.clearance_m: assumption
   tail.type: report-§2
   tail.area_h_m2: report-§2
   tail.arm_m: report-§2
   tail.dihedral_deg: assumption
   tail.taper_ratio: assumption
   tail.airfoil: assumption
+  tail.panel_aspect_ratio: assumption
   propulsion.engine_displacement_cc: report-§2
   propulsion.power_max_kw: report-§2
   propulsion.reduction_ratio: report-§2

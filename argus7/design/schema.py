@@ -18,6 +18,11 @@ class Wing(BaseModel):
 class Fuselage(BaseModel):
     length_m: float = Field(gt=0)
     max_diameter_m: float = Field(gt=0)
+    # (x_fraction, radius_fraction) pairs defining the outer-mould-line
+    # loft stations, nose (0.0) to tail (1.0). Promoted out of
+    # argus7.cad.model.build_fuselage (Task-4 review, fix round 1,
+    # finding 1): the whole hull shape must not be hardcoded in Python.
+    stations: list[tuple[float, float]]
 
 class Booms(BaseModel):
     # length_m is DELETED as an input (ruling P15): its old value, 3.2,
@@ -26,6 +31,11 @@ class Booms(BaseModel):
     # argus7.design.geometry.derive_booms -- not a schema field.
     diameter_m: float = Field(gt=0)
     y_station_frac: float = Field(gt=0, lt=1)
+    # Longitudinal clearance the boom extends beyond the wing root LE it
+    # carries at the front, and beyond the tail quarter-chord it carries
+    # at the aft end. Promoted out of derive_booms's bare 0.15 (Task-4
+    # review, fix round 1, finding 3).
+    clearance_m: float = Field(gt=0)
 
 class Tail(BaseModel):
     type: str
@@ -34,6 +44,11 @@ class Tail(BaseModel):
     dihedral_deg: float
     taper_ratio: float = Field(gt=0, le=1)
     airfoil: str
+    # Assumed tail panel aspect ratio, used to turn the projected
+    # horizontal area (area_h_m2) into a chord/span pair for the CAD
+    # loft. Promoted out of build_tail's bare "AR 3" constant (Task-4
+    # review, fix round 1, finding 2).
+    panel_aspect_ratio: float = Field(gt=0)
 
 class Propulsion(BaseModel):
     engine_displacement_cc: float

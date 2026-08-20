@@ -10,6 +10,21 @@ from argus7.cad.model import (
 def design(): return load_design("design/argus7_v1.yaml")
 
 
+def test_promoted_geometry_fields_load_from_yaml(design):
+    """Fix round 1 findings 1-3: fuselage.stations, tail.panel_aspect_ratio
+    and booms.clearance_m used to be bare constants hardcoded in
+    argus7/cad/model.py (build_fuselage, build_tail) and
+    argus7/design/geometry.py (derive_booms). They are now design-contract
+    YAML inputs -- pin the loaded values here so a regression can't
+    silently reintroduce a Python-side constant."""
+    assert design.fuselage.stations == [
+        (0.00, 0.15), (0.08, 0.62), (0.22, 1.00),
+        (0.55, 0.96), (0.80, 0.70), (1.00, 0.34),
+    ]
+    assert design.tail.panel_aspect_ratio == pytest.approx(3.0)
+    assert design.booms.clearance_m == pytest.approx(0.15)
+
+
 def test_fuselage_runs_along_x(design):
     """REGRESSION GUARD FOR DEFECT 1, other half: the fuselage must be the
     long axis in x while the wing is long in y. In the original SCAD both
