@@ -84,11 +84,20 @@ def emit_openscad(design, path: str | Path) -> Path:
     dih = math.radians(design.wing.dihedral_deg)
     for (y0, c0, t0, x0), (y1, c1, t1, x1) in zip(stations, stations[1:]):
         z0, z1 = y0 * math.tan(dih), y1 * math.tan(dih)
+        # FIX ROUND 1, FINDING 1: OpenSCAD's rotate([0,0,twist]) is a CCW
+        # rotation in its local XY plane, the opposite sense from
+        # argus7.cad.airfoil_coords.scale_airfoil's own convention
+        # (xr = xc*ct + zc*st; zr = -xc*st + zc*ct, chosen in RULING P4
+        # specifically so negative twist means washout -- TE rises above
+        # LE). Emitting the raw angle here reproduced that same sign bug a
+        # second time: TE dropped for washout instead of rising. Negate the
+        # angle on the way out so the emitted geometry matches
+        # scale_airfoil's washout convention, not OpenSCAD's native sense.
         for sgn in (1, -1):
             lines.append(
-                f"    hull() {{ section({c0:.5f}, {math.degrees(t0):.4f}, {x0:.5f}, "
+                f"    hull() {{ section({c0:.5f}, {-math.degrees(t0):.4f}, {x0:.5f}, "
                 f"{sgn * y0:.5f}, {z0:.5f});"
-                f" section({c1:.5f}, {math.degrees(t1):.4f}, {x1:.5f}, "
+                f" section({c1:.5f}, {-math.degrees(t1):.4f}, {x1:.5f}, "
                 f"{sgn * y1:.5f}, {z1:.5f}); }}")
 
     lines += [
@@ -98,12 +107,21 @@ def emit_openscad(design, path: str | Path) -> Path:
         "// (nose-to-tail (x_frac, r_frac) pairs), not hardcoded fractions.",
         "module fuselage() {",
     ]
+    # FIX ROUND 1, FINDING 4: hull() of two spheres bulges past each
+    # station by the sphere's own radius along every axis, including x --
+    # the real build123d loft (build_fuselage) is a solid of revolution
+    # that terminates exactly at each station. A thin disc (radius r,
+    # negligible thickness, face normal along x) hulled between stations
+    # gives a frustum chain that lands on the stations themselves instead
+    # of overshooting them, matching build_fuselage far more closely.
     L, R = design.fuselage.length_m, design.fuselage.max_diameter_m / 2.0
     fus_stations = [(xf * L, max(rf * R, 1e-3)) for xf, rf in design.fuselage.stations]
     for (x0, r0), (x1, r1) in zip(fus_stations, fus_stations[1:]):
         lines.append(
-            f"    hull() {{ translate([{x0:.5f},0,0]) sphere({r0:.5f});"
-            f" translate([{x1:.5f},0,0]) sphere({r1:.5f}); }}")
+            f"    hull() {{ translate([{x0:.5f},0,0]) rotate([0,90,0]) "
+            f"cylinder(r={r0:.5f}, h=0.001);"
+            f" translate([{x1:.5f},0,0]) rotate([0,90,0]) "
+            f"cylinder(r={r1:.5f}, h=0.001); }}")
     lines += [
         "}",
         "",
