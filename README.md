@@ -101,18 +101,28 @@ get them.
   method descriptions in [research/design_pack.md](research/design_pack.md),
   not from runnable code. Regenerating that analysis pipeline is Phase-3
   work, out of scope for this CAD rebuild.
-- **The inverted-V tail hangs 385 mm below the fuselage keel**, and 175 mm below
-  the EO/IR gimbal. With parachute-and-airbag recovery and no landing gear, the
-  tail contacts the ground first on every recovery — the airbag and crush keel
-  that are designed to absorb the 4.5 kJ touchdown never engage. The inverted-V
-  is never justified in the report (§2 states it; the design pack repeats it;
-  neither gives a reason). Its real advantage, proverse roll-yaw coupling, is
-  worth little on an aircraft the design pack specifies for "gentle turning only".
-  An upright V solves ground clearance; an A-frame/connected tail additionally
-  closes a structural loop between the booms, resisting the boom-torsion mode
-  that threatens a high-AR aircraft on 3.65 m booms, and end-plates the
-  horizontal surface for more effectiveness per unit area. Configuration trade
-  deferred to Phase 2, where the aero stack can settle it.
+- **Tail configuration is unresolved, and the driver is fatigue, not clearance.**
+  The inverted-V hangs 385 mm below the fuselage keel, so with parachute recovery
+  and no landing gear it grounds first — but the sponsor has ruled that acceptable
+  by making the tail surface a serviceable item (two screws and a quick connector,
+  replaced if damaged). Ground clearance is therefore **not** a design driver.
+  What is: the booms extend aft of the prop disc and sit in its slipstream, so
+  they are excited at blade-passage frequency — 70 Hz for a 2-blade prop at
+  2100 RPM — continuously. That is **28.4 M cycles in one 4.7-day mission** and
+  126 M by the 500 h engine TBO. Two consequences: a quick-release bolted joint
+  at a high-cycle location fails by hole bearing wear and fretting long before
+  the laminate does, so it must sit outboard of fatigue-critical structure or be
+  a life-limited item with a stated interval; and if a boom natural frequency
+  lands near 70 Hz, resonance collapses fatigue life by orders of magnitude,
+  making frequency separation a constraint on the layup rather than a later check.
+  The inverted-V is never justified in the report (§2 states it, the design pack
+  repeats it, neither gives a reason) and its one real advantage — proverse
+  roll-yaw coupling — is worth little on an aircraft specified for "gentle
+  turning only". An A-frame or connected tail closes a structural loop between
+  the booms, lowering cyclic torsional amplitude in the booms and their joints;
+  because S-N is a power law, a modest amplitude reduction buys disproportionate
+  life. The counter is that it adds joints, and joints are where fatigue lives.
+  Quantitative trade deferred to Phase 2.
 - Regulatory treatment (§9) is EU headline level only.
 
 ## Verified non-issues
