@@ -822,3 +822,28 @@ For the forced-transition sweep, `VPAR / XTR` with the two values on **separate 
 **4. Endurance.** Identical to `materials_pack.md` Appendix group 3: ρ = 0.81935, S = 3.9, AR = 22, e = 0.85, C_L = C_Lmax/1.15², η_p = 0.84, P_el = 500 W through η_alt = 0.75, BSFC = 270 g/kWh, V = √(2W/(ρSC_L)), P_shaft = ½ρV³S·C_D/η_p + P_el/η_alt, ṁ = BSFC·P_shaft, integrated 250 kg → (148.5 + Δm) kg over 200,000 steps. **Validation: C_D0 = 0.016 returns +8.589 h against the report's stated +8.64 h (0.6% agreement), and reproduces every isolated sensitivity in `materials_pack.md` §6.8 to the last quoted digit.** Deltas are then applied to the report's headline 112.8 h.
 
 Anyone re-deriving these should get the same answers; where they do not, the discrepancy is more interesting than the number.
+
+---
+
+## Controller verification note (added 2026-08-20)
+
+**The XFOIL transition result in §3 has NOT been independently reproduced.**
+Three attempts to rerun it against the committed, checksum-pinned
+`data/airfoils/fx63137.dat` ended in `SIGFPE: Floating-point exception`,
+each preceded by `WARNING: Poor input coordinate distribution / Excessive
+panel angle 65.2 at i = 51` — index 51 being the leading-edge point of the
+Lednicer-reassembled array. Attempted with `PANE`, with `PPAR N 300`
+repaneling, and with `PACC`/`ASEQ` polar accumulation at N 280.
+
+Treat x_tr = 0.502 (root) / 0.605 (tip) and the 40.5% turbulent-area figure
+as **single-source and unconfirmed** until the working invocation is
+recorded and reproduced. The riblet verdict does not depend on the exact
+transition location — it is decided by mass scaling, and holds across the
+plausible range — but Phase 2's polar database does.
+
+**This is a Phase 2 blocker, not a footnote.** The aero stack runs XFOIL
+over this file and three more UIUC sections (S1223, E387, SD7037). If the
+committed coordinates need a repaneling or smoothing step before XFOIL will
+accept them, that step must live in the loader and be tested, not in tribal
+knowledge. Ncrit = 9 is likewise assumed; the pack itself flags that the
+table should be re-run at 7 and 12 before any figure is quoted as settled.
