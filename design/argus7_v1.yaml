@@ -11,10 +11,13 @@
 #                that pack describes the 200 kg AR-20 predecessor, a
 #                different aircraft, and none of v1.0's numbers come from it.
 #   derived      not authoritative as written; a later task computes it from
-#                other Design fields (booms.length_m in Task 4;
-#                wing.thickness_ratio will be cross-checked against loaded
-#                FX63-137 airfoil coordinates in Task 2 rather than trusted
-#                as a bare digit of the airfoil name).
+#                other Design fields (wing.thickness_ratio will be
+#                cross-checked against loaded FX63-137 airfoil coordinates
+#                in Task 2 rather than trusted as a bare digit of the
+#                airfoil name). booms.length_m was deleted as a Design
+#                field entirely in Task 4 (ruling P15): it is now
+#                computed geometry (argus7.design.geometry.derive_booms),
+#                not an input, so it carries no provenance tag.
 #   assumption   appears in neither the report nor the design pack. Several
 #                of these (fuselage.*, booms.diameter_m, booms.y_station_frac,
 #                tail.dihedral_deg, tail.taper_ratio, tail.airfoil) were
@@ -42,7 +45,7 @@ wing:
   incidence_deg: 2.0
 
 fuselage: {length_m: 3.4, max_diameter_m: 0.48}
-booms:    {length_m: 3.2, diameter_m: 0.09, y_station_frac: 0.134}
+booms:    {diameter_m: 0.09, y_station_frac: 0.134}
 tail:     {type: inverted_v, area_h_m2: 0.31, arm_m: 3.2,
            dihedral_deg: -42.0, taper_ratio: 0.55, airfoil: NACA0010}
 propulsion: {engine_displacement_cc: 250.0, power_max_kw: 17.0,
@@ -63,7 +66,6 @@ provenance:
   wing.incidence_deg: assumption
   fuselage.length_m: assumption
   fuselage.max_diameter_m: assumption
-  booms.length_m: derived
   booms.diameter_m: assumption
   booms.y_station_frac: assumption
   tail.type: report-§2

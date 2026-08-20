@@ -79,6 +79,10 @@ def test_stations_apply_linear_taper_and_washout(design):
     assert tip[1]  == pytest.approx(g.chord_tip_m,  rel=1e-6)
     assert root[2] == pytest.approx(0.0, abs=1e-9)
     assert tip[2]  == pytest.approx(math.radians(design.wing.twist_tip_deg), rel=1e-6)
+    # Sweep coverage: no test anywhere else touches x_le / sweep -- pin the
+    # tip station's leading-edge x against the sweep formula directly.
+    assert tip[3] == pytest.approx(
+        tip[0] * math.tan(math.radians(design.wing.sweep_le_deg)), rel=1e-6)
 
 def test_dihedral_raises_the_tip(design, wing):
     bb = wing.bounding_box()

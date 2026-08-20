@@ -20,7 +20,10 @@ class Fuselage(BaseModel):
     max_diameter_m: float = Field(gt=0)
 
 class Booms(BaseModel):
-    length_m: float = Field(gt=0)
+    # length_m is DELETED as an input (ruling P15): its old value, 3.2,
+    # came from the defective SCAD, not from any report, and cannot span
+    # wing to tail. It is now derived geometry -- see
+    # argus7.design.geometry.derive_booms -- not a schema field.
     diameter_m: float = Field(gt=0)
     y_station_frac: float = Field(gt=0, lt=1)
 
