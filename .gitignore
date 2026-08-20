@@ -17,6 +17,7 @@ venv/
 *.stl
 *.3mf
 *.amf
+model/*.step
 build/
 out/
 
@@ -38,3 +39,6 @@ logs/
 *.dat.gz
 aero/cfd/runs/
 opt/runs/
+
+# SDD workspace (scratch, regenerable)
+.superpowers/

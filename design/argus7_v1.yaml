@@ -1,0 +1,199 @@
+# ARGUS-7 v1.0 parameter file.
+#
+# Provenance is field-level, not file-level: see the `provenance:` block
+# below (checked by tests/test_geometry_closure.py::
+# test_every_geometry_field_has_provenance) rather than trusting any
+# whole-file claim. Tags:
+#   report-§N    verbatim/unambiguous from docs/argus7_design_report.md
+#                section N. §2 is the geometry table, including its
+#                tail-volume inconsistency (see test_report_stated_tail_volume)
+#                — not "fixed" here; §1 is the locked mission definition; §3
+#                is the mass budget; §4 is the aero/performance model.
+#   design_pack-§1  from research/design_pack.md section 1. NOT used below:
+#                that pack describes the 200 kg AR-20 predecessor, a
+#                different aircraft, and none of v1.0's numbers come from it.
+#   derived      not authoritative as written; a later task computes it from
+#                other Design fields (wing.thickness_ratio will be
+#                cross-checked against loaded FX63-137 airfoil coordinates
+#                in Task 2 rather than trusted as a bare digit of the
+#                airfoil name). booms.length_m was deleted as a Design
+#                field entirely in Task 4 (ruling P15): it is now
+#                computed geometry (argus7.design.geometry.derive_booms),
+#                not an input, so it carries no provenance tag.
+#   assumption   appears in neither the report nor the design pack. Several
+#                of these (fuselage.*, booms.diameter_m, booms.y_station_frac,
+#                tail.dihedral_deg, tail.taper_ratio, tail.airfoil) were
+#                carried over from model/argus7_model.scad, the defective
+#                artifact this phase replaces — kept as placeholder values,
+#                explicitly flagged non-authoritative rather than
+#                mislabeled as report-derived.
+name: ARGUS-7
+variant: v1.0
+
+mission:
+  payload_mass_kg: 50.0
+  payload_power_w: 500.0
+  loiter_altitude_m: 4000.0
+
+wing:
+  area_m2: 3.9
+  aspect_ratio: 22.0
+  taper_ratio: 0.45
+  airfoil: FX63-137
+  twist_tip_deg: -3.0
+  dihedral_deg: 3.0
+  sweep_le_deg: 1.0
+  thickness_ratio: 0.137
+  incidence_deg: 2.0
+  # Fraction of fuselage length at which the wing ROOT LEADING EDGE sits.
+  # FINAL REVIEW I4: this was `return 0.22 * design.fuselage.length_m` inside
+  # argus7.design.geometry.wing_le_x -- the single most load-bearing literal
+  # left in the codebase after the Task-4 sweep, since it fixes the wing
+  # station and through it wing_ac_x, tail_qc_x, the whole of derive_booms
+  # and the tail placement.
+  # COINCIDENCE, NOT A COUPLING: fuselage.stations also contains a 0.22 entry
+  # -- the max-diameter station. Nothing on record says these were ever meant
+  # to be the same station; they are two independent assumptions that happen
+  # to share a value today. They are deliberately left uncoupled, and no test
+  # asserts they are equal (that would BE the coupling).
+  x_le_frac: 0.22
+  # Vertical offset of the wing root leading edge above the fuselage
+  # centreline (z = 0, which is also the boom axis).
+  #
+  # FINAL REVIEW C1: this was a bare 0.05 typed into
+  # argus7.cad.model.build_aircraft and a second time into
+  # argus7.cad.to_openscad, and at 0.05 m it held the wing's lower surface
+  # 25.8 mm ABOVE the top of the booms -- the booms, and the entire tail they
+  # carry, were a free-floating body.
+  #
+  # DO NOT CHANGE THIS VALUE WITHOUT RE-VERIFYING THE JOINT. The record of
+  # why 0.008 was chosen over its neighbours lives here because it must
+  # survive in the repository:
+  #
+  # 1. Usable window, measured from the built solid, is roughly [0, 0.0175]:
+  #    - Lower bound 0: the wing must stay clear of the boom centreline. The
+  #      wing section measures 75.2 mm thick at the boom station (y = 0.6206 m)
+  #      against a 90 mm boom, so a through-boom is GEOMETRICALLY IMPOSSIBLE.
+  #      The joint has to be a let-in from below, not a carry-through.
+  #    - Upper bound 0.0175: above it the burial falls under the 10 mm the
+  #      structural guard requires, and by 0.0275 the joint vanishes entirely.
+  # 2. 0.008 sits mid-window: the wing's measured lower surface is at
+  #    z = 0.0255 m, letting the boom's top 19.5 mm -- 21.7% of its diameter
+  #    -- into the wing. That is a real structural joint of the kind
+  #    research/materials_pack.md already presumes when it specifies printed
+  #    wing-boom junction fillets.
+  # 3. OCCT's boolean is ILL-CONDITIONED at neighbouring values, in two
+  #    distinct ways, neither of which is visible without the interference
+  #    guard:
+  #    - 0.006: the boolean returns 0.0 cm3 and the airframe comes out as
+  #      THREE disconnected solids -- while is_valid still reports True.
+  #    - 0.010-0.012: every structural guard passes (volume > 0, one solid,
+  #      is_valid True) but the joint silently fails to merge and the fused
+  #      solid over-counts by ~390 cm3. test_stl_repair_preserves_volume
+  #      cannot see it -- both sides of that comparison derive from the same
+  #      bad solid, and the error is 0.06% against a 1% tolerance. That would
+  #      ship a defective B-rep to the Phase-2 mesher.
+  #    Guarded by tests/test_cad_airframe.py::
+  #    test_wing_boom_interference_volume_is_plausible, whose floor is derived
+  #    from the measured burial depth and carries the full sweep.
+  #
+  # PHASE-2 CONSEQUENCE, for a value tagged `assumption`: at 0.008 the chord
+  # plane sits 8 mm above the fuselage centreline where it used to sit 50 mm
+  # above, so ARGUS-7 is now a MID-WING aircraft and the spar carry-through
+  # BISECTS THE FUSELAGE BAY. That is a real packaging and CG problem for the
+  # 50 kg payload and the fuel the report puts at the aerodynamic centre, and
+  # it is a consequence of a value nobody has yet sourced to the report.
+  # Structurally correct as it stands; not yet reconciled with the internal
+  # layout.
+  z_offset_m: 0.008
+
+fuselage:
+  length_m: 3.4
+  max_diameter_m: 0.48
+  # (x_fraction, radius_fraction) OML loft stations, nose to tail.
+  stations:
+    - [0.00, 0.15]
+    - [0.08, 0.62]
+    - [0.22, 1.00]
+    - [0.55, 0.96]
+    - [0.80, 0.70]
+    - [1.00, 0.34]
+booms:    {diameter_m: 0.09, y_station_frac: 0.134, clearance_m: 0.15}
+tail:     {type: inverted_v, area_h_m2: 0.31, arm_m: 3.2,
+           dihedral_deg: -42.0, taper_ratio: 0.55, airfoil: NACA0010,
+           panel_aspect_ratio: 3.0}
+propulsion: {engine_displacement_cc: 250.0, power_max_kw: 17.0,
+             reduction_ratio: 2.3, prop_diameter_m: 0.813, prop_rpm: 2100.0}
+masses:   {airframe: 60.5, powertrain: 25.0, avionics: 6.0, recovery: 7.0,
+           payload: 50.0, fuel: 101.5, mtow: 250.0}
+aero:     {cd0: 0.020, oswald_e: 0.85, cl_max: 1.6}
+
+provenance:
+  wing.area_m2: report-§2
+  wing.aspect_ratio: report-§2
+  wing.taper_ratio: report-§2
+  wing.airfoil: report-§2
+  wing.thickness_ratio: derived
+  wing.twist_tip_deg: assumption
+  wing.dihedral_deg: assumption
+  wing.sweep_le_deg: assumption
+  wing.incidence_deg: assumption
+  wing.x_le_frac: assumption
+  wing.z_offset_m: assumption
+  fuselage.length_m: assumption
+  fuselage.max_diameter_m: assumption
+  fuselage.stations: assumption
+  booms.diameter_m: assumption
+  booms.y_station_frac: assumption
+  booms.clearance_m: assumption
+  tail.type: report-§2
+  tail.area_h_m2: report-§2
+  tail.arm_m: report-§2
+  tail.dihedral_deg: assumption
+  tail.taper_ratio: assumption
+  tail.airfoil: assumption
+  tail.panel_aspect_ratio: assumption
+  propulsion.engine_displacement_cc: report-§2
+  propulsion.power_max_kw: report-§2
+  propulsion.reduction_ratio: report-§2
+  propulsion.prop_diameter_m: report-§2
+  propulsion.prop_rpm: report-§2
+  # FINAL REVIEW M7: masses, mission and aero carried ZERO provenance entries
+  # and the old test did not ask for any. Every tag below was read back
+  # against the report before being written, not inferred from the section
+  # a field happens to live in.
+  masses.airframe: report-§3          # §3 mass budget table, "Airframe structure"
+  masses.powertrain: report-§3        # §3 "Powertrain (dry)"
+  masses.avionics: report-§3          # §3 "Avionics"
+  masses.recovery: report-§3          # §3 "Recovery system"
+  masses.payload: report-§3           # §3 "Payload"
+  masses.fuel: report-§3              # §3 "Fuel", 40.6% of MTOW. This is the
+                                      # number at the centre of the unresolved
+                                      # wing-fuel-volume escalation (README
+                                      # "Known gaps"): the report requires
+                                      # ~120 L in the wing, the wing holds
+                                      # ~50 L usable. Tagged as published;
+                                      # NOT silently reduced to fit.
+  masses.mtow: report-§3              # §3 "MTOW", and the §2 headline row
+  mission.payload_mass_kg: report-§1  # §1 "Total ~50 kg / ~500 W continuous"
+  mission.payload_power_w: report-§1  # §1, same sentence (620 W peak)
+  mission.loiter_altitude_m: report-§4  # NOT §1: §1 locks only the BAND
+                                      # ("loiter band 3,000–4,500 m AGL").
+                                      # 4,000 m is the altitude §4 actually
+                                      # evaluates the performance model at
+                                      # ("loiter 128 km/h heavy → 99 km/h
+                                      # light at 4,000 m"), and the altitude
+                                      # the §0 headline endurance is quoted
+                                      # at. Tagged where the number is, not
+                                      # where the topic is.
+  aero.cd0: report-§4                 # §4 "C_D0 = 0.020 realistic". The
+                                      # report brackets it explicitly: 0.016
+                                      # optimistic clean build, 0.024 dirty
+                                      # with external antennas. 0.020 is the
+                                      # middle figure the endurance numbers
+                                      # were computed at, not a clean-build
+                                      # best case — but the ±20% band is the
+                                      # report's own, and Phase 2's C_D0
+                                      # validation gate is 15% wide.
+  aero.oswald_e: report-§4            # §4 drag polar, "e = 0.85"
+  aero.cl_max: report-§4              # §4 stall constraint, "C_Lmax = 1.6"
