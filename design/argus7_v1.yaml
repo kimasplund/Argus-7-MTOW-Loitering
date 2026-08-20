@@ -1,0 +1,31 @@
+# ARGUS-7 v1.0 as published in docs/argus7_design_report.md section 2.
+# Transcribed verbatim including the section-2 tail inconsistency (see
+# tests/test_geometry_closure.py::test_report_stated_tail_volume).
+name: ARGUS-7
+variant: v1.0
+
+mission:
+  payload_mass_kg: 50.0
+  payload_power_w: 500.0
+  loiter_altitude_m: 4000.0
+
+wing:
+  area_m2: 3.9
+  aspect_ratio: 22.0
+  taper_ratio: 0.45
+  airfoil: FX63-137
+  twist_tip_deg: -3.0
+  dihedral_deg: 3.0
+  sweep_le_deg: 1.0
+  thickness_ratio: 0.137
+  incidence_deg: 2.0
+
+fuselage: {length_m: 3.4, max_diameter_m: 0.48}
+booms:    {length_m: 3.2, diameter_m: 0.09, y_station_frac: 0.134}
+tail:     {type: inverted_v, area_h_m2: 0.31, arm_m: 3.2,
+           dihedral_deg: -42.0, taper_ratio: 0.55, airfoil: NACA0010}
+propulsion: {engine_displacement_cc: 250.0, power_max_kw: 17.0,
+             reduction_ratio: 2.3, prop_diameter_m: 0.813, prop_rpm: 2100.0}
+masses:   {airframe: 60.5, powertrain: 25.0, avionics: 6.0, recovery: 7.0,
+           payload: 50.0, fuel: 101.5, mtow: 250.0}
+aero:     {cd0: 0.020, oswald_e: 0.85, cl_max: 1.6}
