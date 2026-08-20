@@ -15,16 +15,33 @@ def _section_coords(name: str) -> np.ndarray:
 
 
 def section_stations(design, n: int = 9):
-    """(y, chord, twist_rad, x_le) at n stations from root to tip."""
+    """(y, chord, twist_rad, x_le) at n stations from root to tip.
+
+    twist is the section's TOTAL geometric angle: the wing's rig incidence
+    (design.wing.incidence_deg, constant across the span) plus the linear
+    washout distribution (design.wing.twist_tip_deg, 0 at the root and full
+    at the tip). Positive is nose-up; each section is rotated about its own
+    leading edge by argus7.cad.airfoil_coords.scale_airfoil.
+
+    FINAL REVIEW I3: incidence_deg used to be declared in the schema and read
+    by nothing at all -- `grep -rn incidence argus7/` returned exactly one
+    hit, the declaration itself -- so the built wing had 0 deg incidence
+    while the design file declared 2. The provenance test could not catch
+    that: it checks a tag EXISTS, not that a field ARRIVES. Phase 2 generates
+    AVL from this same YAML and would apply the incidence, while the STEP
+    that SU2 meshes would not have carried it -- a 2 deg disagreement across
+    the two sides of a three-way C_D0 gate whose threshold is 15%.
+    """
     g = derive_wing(design.wing)
     semi = g.span_m / 2.0
     sweep = math.radians(design.wing.sweep_le_deg)
+    incidence = math.radians(design.wing.incidence_deg)
     out = []
     for i in range(n):
         f = i / (n - 1)                                  # 0 at root, 1 at tip
         y = f * semi
         chord = g.chord_root_m + f * (g.chord_tip_m - g.chord_root_m)
-        twist = f * math.radians(design.wing.twist_tip_deg)
+        twist = incidence + f * math.radians(design.wing.twist_tip_deg)
         x_le = y * math.tan(sweep)
         out.append((y, chord, twist, x_le))
     return out
