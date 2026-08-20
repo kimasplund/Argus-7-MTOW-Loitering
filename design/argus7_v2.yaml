@@ -1,0 +1,126 @@
+# ARGUS-7 v2.0 - OPTIMISED DESIGN POINT
+#
+# Produced by argus7/opt/ on 2026-08-21. NOT a published design: this is the
+# optimiser's output, pending the gauntlet verdict recorded in
+# docs/decisions/2026-08-20-gauntlet-preregistration.md.
+#
+# Endurance 161.5 h (6.73 d) against v1.0's published 4.70 d, and unlike v1.0
+# the fuel physically fits the wing: 123.9 kg required against 123.9 kg
+# capacity. The constraint is EXACTLY ACTIVE, so there is zero ullage margin.
+# Allow the 3-5 percent a real tank needs and this becomes roughly 6.5 d.
+#
+# Altitude fixed to 4000 m at the sponsor's direction (smooth air). The
+# unconstrained optimum was 2500 m at 7.14 d; the constraint costs about 10 h.
+#
+# FOUR VARIABLES SIT AT THEIR BOUNDS: wing area (6.0 max), thickness (0.20
+# max), altitude (4000, bottom of the allowed band), BSFC (0.25 min). The
+# pre-registration requires bound-pinning be discounted, not celebrated.
+#
+# Tail area holds v1.0's tail volume coefficient Vh = 0.5765.
+name: ARGUS-7
+variant: v2.0-opt
+mission:
+  payload_mass_kg: 50.0
+  payload_power_w: 500.0
+  loiter_altitude_m: 4000.0
+wing:
+  area_m2: 6.0
+  aspect_ratio: 18.7401
+  taper_ratio: 0.3
+  airfoil: FX63-137
+  twist_tip_deg: -3.0
+  dihedral_deg: 3.0
+  sweep_le_deg: 1.0
+  thickness_ratio: 0.2
+  incidence_deg: 2.0
+  x_le_frac: 0.22
+  z_offset_m: 0.008
+fuselage:
+  length_m: 3.4
+  max_diameter_m: 0.48
+  stations:
+  - - 0.0
+    - 0.15
+  - - 0.08
+    - 0.62
+  - - 0.22
+    - 1.0
+  - - 0.55
+    - 0.96
+  - - 0.8
+    - 0.7
+  - - 1.0
+    - 0.34
+booms:
+  diameter_m: 0.09
+  y_station_frac: 0.134
+  clearance_m: 0.15
+tail:
+  type: inverted_v
+  area_h_m2: 0.6707
+  arm_m: 3.2
+  dihedral_deg: -42.0
+  taper_ratio: 0.55
+  airfoil: NACA0010
+  panel_aspect_ratio: 3.0
+propulsion:
+  engine_displacement_cc: 250.0
+  power_max_kw: 17.0
+  reduction_ratio: 2.3
+  prop_diameter_m: 0.813
+  prop_rpm: 2100.0
+masses:
+  airframe: 65.28
+  powertrain: 25.0
+  avionics: 6.0
+  recovery: 7.0
+  payload: 50.0
+  fuel: 123.94
+  mtow: 277.21
+aero:
+  cd0: 0.01607
+  oswald_e: 0.854
+  cl_max: 1.6
+provenance:
+  wing.area_m2: derived
+  wing.aspect_ratio: derived
+  wing.taper_ratio: derived
+  wing.airfoil: "report-\xA72"
+  wing.thickness_ratio: derived
+  wing.twist_tip_deg: assumption
+  wing.dihedral_deg: assumption
+  wing.sweep_le_deg: assumption
+  wing.incidence_deg: assumption
+  wing.x_le_frac: assumption
+  wing.z_offset_m: assumption
+  fuselage.length_m: assumption
+  fuselage.max_diameter_m: assumption
+  fuselage.stations: assumption
+  booms.diameter_m: assumption
+  booms.y_station_frac: assumption
+  booms.clearance_m: assumption
+  tail.type: "report-\xA72"
+  tail.area_h_m2: derived
+  tail.arm_m: "report-\xA72"
+  tail.dihedral_deg: assumption
+  tail.taper_ratio: assumption
+  tail.airfoil: assumption
+  tail.panel_aspect_ratio: assumption
+  propulsion.engine_displacement_cc: "report-\xA72"
+  propulsion.power_max_kw: "report-\xA72"
+  propulsion.reduction_ratio: "report-\xA72"
+  propulsion.prop_diameter_m: "report-\xA72"
+  propulsion.prop_rpm: "report-\xA72"
+  masses.airframe: derived
+  masses.powertrain: "report-\xA73"
+  masses.avionics: "report-\xA73"
+  masses.recovery: "report-\xA73"
+  masses.payload: "report-\xA73"
+  masses.fuel: derived
+  masses.mtow: derived
+  mission.payload_mass_kg: "report-\xA71"
+  mission.payload_power_w: "report-\xA71"
+  mission.loiter_altitude_m: derived
+  aero.cd0: derived
+  aero.oswald_e: derived
+  aero.cl_max: "report-\xA74"

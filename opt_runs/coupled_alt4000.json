@@ -1,0 +1,48 @@
+{
+  "calibration_k": 4.225741615220753,
+  "stage1": {
+    "n": 24000000,
+    "seconds": 2.0119871999995667,
+    "rate_M_per_s": 11.928505310573133,
+    "n_feasible": 3154453,
+    "pct_feasible": 13.143554166666666
+  },
+  "best_feasible": {
+    "wing_area_m2": 6.0,
+    "aspect_ratio": 18.740062713623047,
+    "taper_ratio": 0.30000001192092896,
+    "thickness_ratio": 0.20000000298023224,
+    "mtow_kg": 277.2138671875,
+    "altitude_m": 4000.0,
+    "bsfc_kg_per_kwh": 0.25,
+    "endurance_h": 161.47203063964844,
+    "cd0": 0.016065968200564384,
+    "oswald_e": 0.8540419340133667,
+    "fuel_kg": 123.9381103515625,
+    "tank_kg": 123.93426513671875,
+    "empty_kg": 103.2757568359375,
+    "span_m": 10.603790283203125,
+    "violation": 7.690429629292339e-05,
+    "feasible": false,
+    "endurance_d": 6.7280012766520185
+  },
+  "baseline_v1_coupled": {
+    "wing_area_m2": 3.9000000953674316,
+    "aspect_ratio": 22.0,
+    "taper_ratio": 0.44999998807907104,
+    "thickness_ratio": 0.1370999962091446,
+    "mtow_kg": 250.0,
+    "altitude_m": 4000.0,
+    "bsfc_kg_per_kwh": 0.27000001072883606,
+    "endurance_h": 119.4140853881836,
+    "cd0": 0.016947003081440926,
+    "oswald_e": 0.8499740362167358,
+    "fuel_kg": 101.5,
+    "tank_kg": 39.266334533691406,
+    "empty_kg": 98.5,
+    "span_m": 9.262828826904297,
+    "violation": 1.244673252105713,
+    "feasible": false,
+    "endurance_d": 4.975586891174316
+  }
+}

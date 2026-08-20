@@ -1,0 +1,59 @@
+STAGE 1 coupled: 24,000,000 in 2.0s (11.93 M/s), feasible 3,154,453 (13.144%)
+best feasible from DOE: {
+  "wing_area_m2": 5.992524147033691,
+  "aspect_ratio": 20.136083602905273,
+  "taper_ratio": 0.3505392372608185,
+  "thickness_ratio": 0.19892600178718567,
+  "mtow_kg": 269.6468505859375,
+  "altitude_m": 4147.22998046875,
+  "bsfc_kg_per_kwh": 0.2512124478816986,
+  "endurance_h": 155.68182373046875,
+  "cd0": 0.016041887924075127,
+  "oswald_e": 0.8525053262710571,
+  "fuel_kg": 115.13908386230469,
+  "tank_kg": 116.57942962646484,
+  "empty_kg": 104.50776672363281,
+  "span_m": 10.984806060791016,
+  "violation": 0.0,
+  "feasible": true,
+  "endurance_d": 6.486742655436198
+}
+STAGE 2 augmented-Lagrangian: {
+  "wing_area_m2": 6.0,
+  "aspect_ratio": 18.740062713623047,
+  "taper_ratio": 0.30000001192092896,
+  "thickness_ratio": 0.20000000298023224,
+  "mtow_kg": 277.2138671875,
+  "altitude_m": 4000.0,
+  "bsfc_kg_per_kwh": 0.25,
+  "endurance_h": 161.47203063964844,
+  "cd0": 0.016065968200564384,
+  "oswald_e": 0.8540419340133667,
+  "fuel_kg": 123.9381103515625,
+  "tank_kg": 123.93426513671875,
+  "empty_kg": 103.2757568359375,
+  "span_m": 10.603790283203125,
+  "violation": 7.690429629292339e-05,
+  "feasible": false,
+  "endurance_d": 6.7280012766520185
+}
+BASELINE under the same coupled model: {
+  "wing_area_m2": 3.9000000953674316,
+  "aspect_ratio": 22.0,
+  "taper_ratio": 0.44999998807907104,
+  "thickness_ratio": 0.1370999962091446,
+  "mtow_kg": 250.0,
+  "altitude_m": 4000.0,
+  "bsfc_kg_per_kwh": 0.27000001072883606,
+  "endurance_h": 119.4140853881836,
+  "cd0": 0.016947003081440926,
+  "oswald_e": 0.8499740362167358,
+  "fuel_kg": 101.5,
+  "tank_kg": 39.266334533691406,
+  "empty_kg": 98.5,
+  "span_m": 9.262828826904297,
+  "violation": 1.244673252105713,
+  "feasible": false,
+  "endurance_d": 4.975586891174316
+}
+WROTE opt_runs/coupled.json

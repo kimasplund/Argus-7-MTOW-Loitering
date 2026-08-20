@@ -7,8 +7,8 @@ torch.set_default_dtype(torch.float32)
 dev = "cuda"
 k = calibrate()
 # wing_area, AR, taper, t/c, MTOW, altitude, BSFC
-LO = torch.tensor([2.5, 14.0, 0.30, 0.10, 180.0, 2500.0, 0.25], device=dev)
-HI = torch.tensor([6.0, 30.0, 0.70, 0.20, 320.0, 5000.0, 0.32], device=dev)
+LO = torch.tensor([2.5, 14.0, 0.30, 0.10, 180.0, 4000.0, 0.25], device=dev)
+HI = torch.tensor([6.0, 30.0, 0.70, 0.20, 320.0, 4500.0, 0.32], device=dev)
 NAMES = ["wing_area_m2","aspect_ratio","taper_ratio","thickness_ratio","mtow_kg","altitude_m","bsfc_kg_per_kwh"]
 
 def describe(x):
@@ -48,5 +48,5 @@ print("STAGE 2 augmented-Lagrangian:", json.dumps(out["best_feasible"], indent=2
 xb = torch.tensor([3.9,22.0,0.45,0.1371,250.0,4000.0,0.270], device=dev)
 out["baseline_v1_coupled"] = describe(xb)
 print("BASELINE under the same coupled model:", json.dumps(out["baseline_v1_coupled"], indent=2), flush=True)
-json.dump(out, open("opt_runs/coupled.json","w"), indent=2)
+json.dump(out, open("opt_runs/coupled_alt4000.json","w"), indent=2)
 print("WROTE opt_runs/coupled.json", flush=True)
