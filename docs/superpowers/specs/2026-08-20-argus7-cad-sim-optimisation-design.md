@@ -116,6 +116,44 @@ Two committed design points:
 
 **Method:** Stage 1 Sobol DOE of 2²⁰–2²³ points batched on GPU with feasibility filtering; Stage 2 autograd gradient refinement (Adam then L-BFGS) on top-K feasible seeds using an augmented-Lagrangian treatment of constraints; Stage 3 CMA-ES for local-minimum escape and NSGA-II for the endurance/range/complexity Pareto front.
 
+## 7b. Materials & manufacturability (amendment, added 2026-08-20 at sponsor request)
+
+Materials and build method were absent from the original spec. They are not a
+downstream detail: the wing mass model and the achievable C_D0 both depend on
+them, and both feed the endurance objective directly.
+
+**Grounding:** `research/materials_pack.md` (31 sources).
+
+**Load-bearing results the optimiser and structures layer must consume:**
+
+| Result | Value | Consequence |
+|---|---|---|
+| Mass-to-endurance exchange rate | **1.5 h/kg** | The scoring currency for every material decision |
+| Laminar surface tolerance at Re 0.6–1.1 M | h/λ 0.031–0.044 single-wave | ~6× looser than the sailplane rule of thumb; allowable waviness scales Re^−0.75 |
+| Measured moldless homebuilt wings (NASA TP-2256) | h/λ 0.0030–0.0046 | Pass with 2.6–4.9× margin — a garage build **can** hold laminar flow |
+| Film-wing endurance penalty | 16.6–23.3 h | Drag −5.7…−12.4 h, measured ΔC_Lmax −0.2 → −3.8 h, +4.9 kg → −7.3 h |
+| Wing is stiffness-critical, not strength-critical | 14.2% semi-span tip deflection at limit | Figure of merit is **E/ρ**, not ultimate strength |
+| Wing gross internal volume | **143 L** | Against ~120 L fuel required; realistic tankage ~50 L — see §11 A4 |
+
+**Recommended assignment** (28.9 kg wing, closes with 3.6 kg spare): pultruded UD
+carbon spar caps; COTS roll-wrapped tube booms; printed ribs, wingtips, fittings
+and mounts; moulded skin. Rejected: round-tube wing spar (costs exactly 2.07× a
+cap-and-web spar — the ratio is `2h/D`, pure geometry); printed skins (+18.7 kg,
+fails closure); film skin (cannot form the leading edge, and its scalloping is a
+*spanwise* disturbance for which no criteria exist).
+
+**Optimiser impact:** a buildability constraint is added to §7 — the design must
+map to a material assignment that closes mass, and the wing mass model must be
+driven by the chosen assignment rather than the report's 8.6 kg/m² sailplane
+calibration. The premortem's top failure modes were budget and solo-builder
+bandwidth, not aerodynamics, so build effort is a first-class criterion.
+
+**Correction propagated:** the pack's §2.5 originally computed gross wing volume
+with a hardcoded aerofoil shape factor of 0.68 — a NACA-4-digit value. Measured
+FX 63-137 is 0.6062 (shoelace integration), a +12.2% bias. This is the same
+constant ruling P14 caught in the Task 3 area test, recurring independently in
+prose. 143 L supersedes 160 L.
+
 ## 8. Validation gates
 
 No layer is used downstream until it passes an external check.
@@ -169,6 +207,15 @@ vendor/     avl, SU2 binaries (gitignored)
 - **A1 — Regulatory constraint is soft.** The optimiser may cross 250 kg; every result is tagged with its regulatory band, and both the best unconstrained point and the best ≤250 kg point are reported. *(Asked; not answered before "go". Flipping to hard is a one-line change.)*
 - **A2 — Mission requirements fixed.** Payload 50 kg / 500 W continuous and the loiter mission are inputs, not optimisation variables.
 - **A3 — v1.0 is the champion as published**, including its own stated caveats, without retroactive correction.
+- **A4 — the wing cannot hold its specified fuel, and this is unresolved.** Gross
+  wing internal volume is 143 L; realistic tankage (50% chord between spars, 80%
+  of span, 88% net of structure) gives ~50 L, against the ~120 L the report
+  requires. Report §2 places fuel at the aerodynamic centre specifically to hold
+  CG travel under 0.5% MAC as fuel burns, so relocating 101.5 kg — 40.6% of MTOW —
+  into the fuselage is a stability problem, not a packaging one. **Escalated to the
+  sponsor; it changes the aircraft, not the code.** The optimiser's existing fuel-volume
+  constraint (§7) will simply refuse any design that cannot carry its own fuel, so
+  freeing the design point may resolve it by moving to a larger or thicker wing.
 
 ## 12. Risks
 
