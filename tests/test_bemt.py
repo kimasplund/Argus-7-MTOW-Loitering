@@ -48,6 +48,7 @@ from argus7.prop.bemt import (
     activity_factor,
     close_propulsion,
     constant_pitch_blade,
+    loiter_propulsion_check,
     max_power_absorbed,
     power_absorbed,
     required_cp,
@@ -311,45 +312,52 @@ def test_finding_survives_an_absurdly_generous_sweep(baseline_prop):
     )
 
 
-def test_loiter_shaft_power_does_close(design):
-    """Loiter is fine -- the module must not condemn the whole design.
+def test_loiter_point_is_reproduced_from_the_design_file(design):
+    """The loiter speed and drag must fall out of the yaml, not be quoted.
 
-    Closes the loop with the airframe: take the loiter CL from the report's
-    aero model, get the speed and drag it implies at 4000 m from the design
-    file's own wing geometry and drag polar, and check the baseline
-    propeller can deliver that thrust at a sane efficiency and a shaft power
-    of a few kW. It is climb and takeoff that fail, not loiter.
+    Guards the airframe side of loiter_propulsion_check: CL 1.21 on the
+    design's own wing area, aspect ratio and drag polar at 4000 m must give
+    the report's loiter speed (top of the 99-128 km/h TAS band) and an L/D
+    close to the report's 27.1.
     """
-    from argus7.design.geometry import derive_wing
+    lc = loiter_propulsion_check(DESIGN, rho=RHO_4000M, cl=LOITER_CL, g=G)
+    assert lc.v_ms == pytest.approx(128.0 / 3.6, rel=0.02)
+    assert lc.l_over_d == pytest.approx(27.1, rel=0.02)
+    assert lc.drag_n == pytest.approx(design.masses.mtow * G / lc.l_over_d,
+                                      rel=1e-9)
 
-    wing = derive_wing(design.wing)
-    aero = design.aero
-    w_n = design.masses.mtow * G
-    cl = LOITER_CL
-    cd = aero.cd0 + cl**2 / (math.pi * wing.aspect_ratio * aero.oswald_e)
-    v = math.sqrt(2.0 * w_n / (RHO_4000M * wing.area_m2 * cl))
-    drag_n = w_n * cd / cl
 
-    D = design.propulsion.prop_diameter_m
-    rpm = design.propulsion.prop_rpm
+def test_loiter_holds_but_only_on_three_coarse_blades(design):
+    """Loiter closes -- but not as easily as the report implies.
 
-    # Find the pitch that just makes the required thrust at the loiter point.
-    best = None
-    for pod in np.linspace(0.4, 1.6, 25):
-        r = run_bemt(constant_pitch_blade(D, pod * D, blades=2),
-                     rpm=rpm, v_ms=v, rho=RHO_4000M)
-        if r.thrust_n >= drag_n and (best is None or r.power_w < best.power_w):
-            best = r
-    assert best is not None, (
-        f"baseline prop cannot even make {drag_n:.1f} N at loiter "
-        f"(V {v:.1f} m/s, rho {RHO_4000M:.3f})"
+    The baseline disc has to work at J ~ 1.25 in loiter, which is a very
+    high advance ratio for a 0.813 m propeller at 2100 rpm. With the assumed
+    AF-95 planform a TWO-blade propeller saturates well below the required
+    thrust at every pitch; three coarse blades are needed, and the shaft
+    power comes out above the report's ~3.4 kW because that figure implies a
+    propulsive efficiency no propeller reaches at this advance ratio.
+
+    (The two-blade result depends on the assumed chord distribution -- a
+    much wider blade would change it. The advance ratio does not, and that
+    is the part that matters.)
+    """
+    lc = loiter_propulsion_check(DESIGN, rho=RHO_4000M, cl=LOITER_CL, g=G)
+    assert lc.advance_ratio == pytest.approx(1.25, abs=0.05)
+    assert lc.shaft_power_w is not None, (
+        f"no blade in the sweep makes {lc.drag_n:.1f} N at loiter")
+    assert lc.blades == 3, (
+        f"a 2-blade of the assumed planform tops out at "
+        f"{lc.two_blade_max_thrust_n:.0f} N against {lc.drag_n:.0f} N required"
     )
-    assert 2000.0 < best.power_w < 6000.0, (
-        f"loiter shaft power {best.power_w/1000:.2f} kW is not the few-kW "
-        f"figure the report implies"
+    assert lc.two_blade_max_thrust_n < lc.drag_n
+    assert lc.pitch_over_d > 1.5, "loiter needs a coarse blade at this J"
+    assert 3500.0 < lc.shaft_power_w < 5500.0, (
+        f"loiter shaft power measures {lc.shaft_power_w/1000:.2f} kW"
     )
-    assert best.eta > 0.70, f"loiter prop efficiency only {best.eta:.3f}"
-    assert best.power_w < design.propulsion.power_max_kw * 1000.0
+    assert lc.eta > 0.75
+    # ...and it is still comfortably inside the rated engine power. Loiter is
+    # not what fails.
+    assert lc.shaft_power_w < design.propulsion.power_max_kw * 1000.0
 
 
 def test_close_propulsion_diameter_near_1_05_m():
@@ -406,6 +414,66 @@ def test_closed_diameter_is_actually_achievable_by_bemt():
         f"closing diameter {c.diameter_m:.3f} m only reaches "
         f"{best_w/1000:.2f} kW (C_P {best.cp:.3f}) in BEMT"
     )
+
+
+def test_loiter_altitude_matches_the_assumed_atmosphere(design):
+    """Guard on RHO_4000M: if the design's loiter altitude moves, this fails."""
+    assert design.mission.loiter_altitude_m == pytest.approx(4000.0, abs=1.0)
+
+
+def test_diameter_closure_nearly_collides_with_the_booms(design):
+    """Collateral finding: the closing propeller barely fits between the booms.
+
+    The 1.05 m propeller that closes the power balance has a tip radius of
+    ~527 mm against a boom inner surface at ~576 mm. That is under 50 mm of
+    clearance on an aircraft whose booms sit where they do for tail-arm
+    reasons. Fixing the propulsion set by diameter alone therefore forces a
+    boom-station change too; the module reports the number rather than
+    letting the closure look free.
+    """
+    c = close_propulsion(power_kw=design.propulsion.power_max_kw,
+                         rpm=design.propulsion.prop_rpm, rho=RHO_SEA_LEVEL)
+    assert c.tip_to_boom_clearance_m is not None
+    assert 0.0 < c.tip_to_boom_clearance_m < 0.06, (
+        f"prop tip to boom inner surface = "
+        f"{c.tip_to_boom_clearance_m * 1000:.0f} mm at the closing diameter "
+        f"{c.diameter_m:.3f} m"
+    )
+    # The propeller as drawn is comfortably clear -- it is the fix that isn't.
+    from argus7.design.geometry import derive_booms
+    inner = (abs(derive_booms(design).y_station_m)
+             - 0.5 * design.booms.diameter_m)
+    assert inner - 0.5 * design.propulsion.prop_diameter_m > 0.15
+
+
+def test_polar_table_matches_direct_neuralfoil_evaluation():
+    """The lookup table is a speed shortcut; it must not change the answer.
+
+    Every BEMT query interpolates a precomputed (alpha, Re) table instead of
+    calling the surrogate. Inside the trusted alpha band the interpolated
+    polar must agree with a direct evaluation to well inside the surrogate's
+    own accuracy, or the shortcut is quietly changing the aerodynamics.
+    """
+    from argus7.prop.bemt import (DEFAULT_BLADE_AIRFOIL, _blade_coords,
+                                  _neural_polar, section_cl_cd)
+
+    coords = _blade_coords(DEFAULT_BLADE_AIRFOIL)
+    call = _neural_polar()
+    alpha_deg = np.linspace(-8.0, 16.0, 25)
+    for re_value in (1.3e5, 4.0e5, 9.0e5, 2.2e6):
+        re = np.full_like(alpha_deg, re_value)
+        cl_ref, cd_ref = call(coords, alpha_deg, re)
+        cl, cd = section_cl_cd(np.radians(alpha_deg), re)
+        assert np.max(np.abs(cl - cl_ref)) < 3e-3, f"CL at Re {re_value:.0f}"
+        assert np.max(np.abs(cd - cd_ref)) < 3e-4, f"CD at Re {re_value:.0f}"
+
+
+def test_section_polar_source_is_resolved():
+    """Blade sections must come from the project's NeuralFoil stack."""
+    import argus7.prop.bemt as bemt
+
+    bemt.section_cl_cd(np.array([0.05]), np.array([4.0e5]))
+    assert bemt.SECTION_POLAR_SOURCE in ("argus7.aero.neural", "neuralfoil")
 
 
 def test_power_absorbed_signature_and_units(design):

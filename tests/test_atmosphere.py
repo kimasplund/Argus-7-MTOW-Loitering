@@ -13,11 +13,16 @@ import torch
 
 from argus7.mission.atmosphere import (
     Atmosphere,
+    EARTH_RADIUS_M,
     GRAVITY_MS2,
     ISA_MAX_ALTITUDE_M,
+    LAPSE_RATE_K_PER_M,
     R_AIR_JKGK,
+    SUTHERLAND_BETA,
+    SUTHERLAND_S_K,
     isa,
     isa_numpy,
+    geometric_altitude,
     geopotential_altitude,
 )
 
@@ -29,16 +34,20 @@ ISA_TABLE = {
     1000.0:  ("281.650",  "89874.6", "1.11164", "336.434"),
     4000.0:  ("262.150",  "61640.2", "0.81913", "324.579"),
     5000.0:  ("255.650",  "54019.9", "0.73612", "320.529"),
-    10000.0: ("223.150",  "26436.3", "0.41271", "299.463"),
+    10000.0: ("223.150",  "26436.2", "0.41271", "299.463"),
     11000.0: ("216.650",  "22632.0", "0.36392", "295.069"),
     15000.0: ("216.650",  "12044.6", "0.19367", "295.069"),
     20000.0: ("216.650",   "5474.9", "0.088035", "295.069"),
 }
 
-# Slack beyond the printed precision, to absorb the last-digit differences
-# between implementations of the same standard (aerosandbox's ISA differs from
-# this module by up to 2e-6 relative on p, from its choice of R and g digits).
-CONSTANTS_SLACK = 3e-6
+# Slack beyond half a unit in the last printed place.  This is ONLY here because
+# several rows land at 0.99 half-ulp (a at 11/15/20 km), where a change of dtype
+# or of libm rounding would flip the last digit.  It is deliberately small enough
+# that it cannot absorb a wrong constant: at p = 101325 Pa it is 0.1 Pa, whereas
+# the smallest constant error worth catching (R to 4 decimals) moves p by ~7 Pa.
+# It is NOT a licence to accept another implementation's digits -- every row here
+# was recomputed to 40 decimal places from the ICAO constants in the module.
+CONSTANTS_SLACK = 1e-6
 
 
 def _table_tol(printed: str) -> float:
@@ -140,9 +149,22 @@ def test_geometric_altitude_row_matches_anderson_geometric_table():
 
 
 def test_geopotential_conversion_is_small_but_not_zero():
+    # Tight enough to pin EARTH_RADIUS_M itself: the ISA nominal radius 6356766 m
+    # gives 10980.9980, the mean Earth radius 6371000 m gives 10981.0404.  A looser
+    # tolerance here lets the wrong radius through unnoticed, and the radius is
+    # otherwise unconstrained by any test in this file.
     H = float(geopotential_altitude(_t(11000.0)))
-    assert H == pytest.approx(10981.0, abs=0.5)
+    assert H == pytest.approx(10980.9980, abs=1e-3)
     assert float(geopotential_altitude(_t(0.0))) == pytest.approx(0.0, abs=1e-12)
+
+
+def test_isa_nominal_earth_radius_is_the_defining_constant():
+    assert EARTH_RADIUS_M == 6356766.0
+
+
+def test_altitude_conversions_round_trip():
+    h = torch.linspace(-4000.0, 20000.0, 25, dtype=torch.float64)
+    assert torch.allclose(geometric_altitude(geopotential_altitude(h)), h, rtol=1e-12)
 
 
 # --------------------------------------------------------------------------
@@ -350,3 +372,93 @@ def test_range_check_can_be_disabled_for_hot_loops():
 def test_non_finite_altitude_raises():
     with pytest.raises(ValueError):
         isa(_t([float("nan")]))
+
+
+# --------------------------------------------------------------------------
+# gaps found by mutation-testing the suite: things that a wrong implementation
+# could previously have got away with
+# --------------------------------------------------------------------------
+
+def test_viscosity_matches_the_isa_table_aloft_not_just_at_sea_level():
+    """mu(H) was pinned at only one altitude, so a constant-mu model survived.
+
+    ISA tabulated dynamic viscosity: 1.7894e-5 Pa s at 0 m, 1.6612e-5 at 4 km,
+    1.4216e-5 at 11 km (and constant above, since T is)."""
+    mu = isa(_t([0.0, 4000.0, 11000.0, 20000.0])).dynamic_viscosity_Pas
+    assert mu.numpy() == pytest.approx(
+        np.array([1.78938e-5, 1.661108e-5, 1.421613e-5, 1.421613e-5]), rel=1e-5
+    )
+
+
+def test_viscosity_gradient_matches_the_analytic_sutherland_derivative():
+    """gradcheck cannot see this: dmu/dH is ~3e-10, three thousand times smaller
+    than gradcheck's atol=1e-6, so freezing mu passes every gradcheck in the file."""
+    h = torch.tensor([0.0, 4000.0, 10999.0, 11001.0, 20000.0], dtype=torch.float64,
+                     requires_grad=True)
+    a = isa(h)
+    (dmu,) = torch.autograd.grad(a.dynamic_viscosity_Pas.sum(), h)
+    T = a.temperature_K.detach()
+    # mu = b T^1.5/(T+S)  ->  dmu/dT = b sqrt(T) (0.5 T + 1.5 S)/(T+S)^2
+    dmu_dT = (SUTHERLAND_BETA * torch.sqrt(T) * (0.5 * T + 1.5 * SUTHERLAND_S_K)
+              / (T + SUTHERLAND_S_K) ** 2)
+    lapse = torch.tensor([LAPSE_RATE_K_PER_M] * 3 + [0.0, 0.0], dtype=torch.float64)
+    assert torch.allclose(dmu, dmu_dT * lapse, rtol=1e-12)
+    assert float(dmu[0]) == pytest.approx(-3.1363e-10, rel=1e-4)  # independent value
+
+
+def test_empty_batch_is_handled_not_crashed():
+    """A zero-length altitude batch is a normal slice in a vectorised sweep; the
+    range check used to raise RuntimeError from min() on it."""
+    out = isa(torch.zeros(0, dtype=torch.float64))
+    for field in out:
+        assert field.shape == (0,)
+
+
+def test_negative_blend_width_raises_instead_of_being_ignored():
+    with pytest.raises(ValueError, match="blend_m"):
+        isa(_t(11000.0), blend_m=-50.0)
+
+
+def test_blend_error_is_bounded_near_the_break_not_only_far_from_it():
+    """The existing blend test samples 0/4000/20000 m -- 140+ blend widths away,
+    where the error is identically zero. Pin the near field, where it is not."""
+    w = 50.0
+    h = _t([10800.0, 11000.0, 11200.0])
+    hard, soft = isa(h), isa(h, blend_m=w)
+    dT = (soft.temperature_K - hard.temperature_K).abs()
+    # worst case is exactly at the break: |dT| = |L| * w * ln 2
+    assert float(dT[1]) == pytest.approx(abs(LAPSE_RATE_K_PER_M) * w * math.log(2.0), rel=1e-6)
+    # four widths away it has decayed by three orders of magnitude
+    assert float(dT[0]) < 1e-2 and float(dT[2]) < 1e-2
+
+
+def test_blended_model_is_not_hydrostatically_exact_and_the_error_is_bounded():
+    """KNOWN LIMITATION of blend_m > 0, pinned here so it cannot grow silently.
+
+    The closed form is the hydrostatic solution only when Hc == min(H, Ht),
+    because then (H - Hc) and dHc/dH are never both non-zero.  The softmin makes
+    them overlap in a band around the tropopause, leaving a residual
+
+        (dp/dH + rho g) / (rho g) = (H - Hc) * |L| * (dHc/dH) / T
+
+    whose maximum over H is w*|L|/(e*T_tropopause) -- exactly, since
+    max_u u*exp(-u) = 1/e.  So rho and dp/dH describe atmospheres that differ by
+    ~1.1e-5 per metre of blend width.  Exact ISA (blend_m=0) is hydrostatic to
+    machine precision; this is the price of the C-infinity option.
+    """
+    exact_coeff = abs(LAPSE_RATE_K_PER_M) / (math.e * 216.65)  # 1.1037e-5 per m
+    for w in (25.0, 50.0, 200.0):
+        h = torch.linspace(10000.0, 12000.0, 2001, dtype=torch.float64, requires_grad=True)
+        a = isa(h, blend_m=w)
+        (dp,) = torch.autograd.grad(a.pressure_Pa.sum(), h)
+        rel = ((dp + a.density_kgm3.detach() * GRAVITY_MS2)
+               / (a.density_kgm3.detach() * GRAVITY_MS2)).abs().max()
+        # (the few-per-mille slack is because the peak sits slightly above the
+        #  tropopause, where the blended T is a shade above 216.65 K)
+        assert float(rel) == pytest.approx(w * exact_coeff, rel=5e-3)
+
+    # ...and with blend_m = 0 the same measurement is machine zero.
+    h = torch.linspace(10000.0, 12000.0, 2001, dtype=torch.float64, requires_grad=True)
+    a = isa(h)
+    (dp,) = torch.autograd.grad(a.pressure_Pa.sum(), h)
+    assert torch.allclose(dp, -a.density_kgm3.detach() * GRAVITY_MS2, rtol=1e-13)

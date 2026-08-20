@@ -21,8 +21,20 @@ Two jobs, and the second one is the reason it exists.
    and 0.911 is not a propeller power coefficient. A conventional two- or
    three-blade propeller tops out near C_P = 0.25 (see
    ``PRACTICAL_CP_CEILING``), which for this disc at this rpm is about
-   4.66 kW. Loiter needs roughly 3.4 kW of shaft power and is fine. Climb
-   and takeoff are not fine: the propeller is the limit, not the engine.
+   4.66 kW. This model's own blade-element sweep agrees: the best it can
+   force through that disc is 6.4 kW, and even at an absurd pitch/D of 4.0
+   it reaches only 11.3 kW. Climb and takeoff do not close. The propeller,
+   not the engine, is the limit.
+
+   Loiter does close, but less comfortably than the report implies, and
+   ``loiter_propulsion_check`` is there because the answer was not the
+   expected one. At the loiter point the disc has to work at J ~ 1.25,
+   which is a high advance ratio for a 0.813 m propeller at 2100 rpm. With
+   the assumed blade planform a TWO-blade propeller cannot make the
+   required 91 N at any pitch -- it saturates near 73 N. Three blades at
+   pitch/D ~ 2.0 hold it, at about 4.3 kW of shaft power rather than the
+   report's ~3.4 kW (that figure implies a propulsive efficiency of 0.95,
+   which nothing reaches at this advance ratio).
 
    ``power_absorbed`` and ``max_power_absorbed`` measure this with the
    blade-element model rather than asserting it, and ``close_propulsion``
@@ -84,6 +96,8 @@ __all__ = [
     "power_absorbed",
     "max_power_absorbed",
     "close_propulsion",
+    "LoiterCheck",
+    "loiter_propulsion_check",
     "baseline_finding_report",
     "section_cl_cd",
     "SECTION_POLAR_SOURCE",
@@ -163,11 +177,27 @@ CD_FLAT_PLATE_MIN = 0.02
 
 # Polar lookup table resolution. The table is built once per airfoil by
 # evaluating the neural surrogate on this grid; every BEMT query is then a
-# bilinear interpolation. At 0.25 deg in alpha the interpolation error is far
-# below the surrogate's own error, and it makes a full pitch x advance-ratio
+# bilinear interpolation, which is what makes a full pitch x advance-ratio
 # sweep cost milliseconds instead of minutes.
-TABLE_ALPHA_DEG = np.arange(-90.0, 90.0 + 1e-9, 0.25)
-TABLE_RE = np.geomspace(2.0e4, 1.0e7, 25)
+#
+# The alpha grid is deliberately non-uniform: 0.1 deg across the band the
+# blade sections actually work in, 1 deg out in the flat-plate region where
+# the polar is a smooth analytic function and resolution buys nothing. At
+# 0.1 deg the interpolation error is under 0.003 in CL, an order of
+# magnitude inside NeuralFoil's own error against XFOIL, so the shortcut is
+# not changing the aerodynamics (asserted in tests/test_bemt.py).
+TABLE_ALPHA_DEG = np.unique(np.concatenate([
+    np.arange(-90.0, -30.0, 1.0),
+    np.arange(-30.0, 35.0 + 1e-9, 0.1),
+    np.arange(36.0, 90.0 + 1e-9, 1.0),
+]))
+# The Reynolds axis needs to be fine too, and for a reason worth recording:
+# the surrogate's CL is not perfectly smooth in Re. At alpha = 0 it moves
+# from 0.476 at Re 3.45e5 to 0.438 at Re 4.47e5 and back up -- a wiggle in
+# the network, not physics. Coarse cells alias that wiggle into the
+# interpolation, so the grid is fine enough (~8% per cell) that no cell can
+# hide one.
+TABLE_RE = np.geomspace(2.0e4, 1.0e7, 61)
 
 # --- Solver settings --------------------------------------------------------
 PHI_MIN_RAD = math.radians(0.15)
@@ -298,10 +328,10 @@ def section_cl_cd(alpha_rad, re, airfoil: str = DEFAULT_BLADE_AIRFOIL,
                 TABLE_ALPHA_DEG[0], TABLE_ALPHA_DEG[-1])
     r = np.clip(np.asarray(re, dtype=float), TABLE_RE[0], TABLE_RE[-1])
 
-    da = TABLE_ALPHA_DEG[1] - TABLE_ALPHA_DEG[0]
-    ia = np.clip(((a - TABLE_ALPHA_DEG[0]) / da).astype(np.int64),
+    ia = np.clip(np.searchsorted(TABLE_ALPHA_DEG, a) - 1,
                  0, len(TABLE_ALPHA_DEG) - 2)
-    fa = (a - TABLE_ALPHA_DEG[ia]) / da
+    fa = ((a - TABLE_ALPHA_DEG[ia])
+          / (TABLE_ALPHA_DEG[ia + 1] - TABLE_ALPHA_DEG[ia]))
 
     lr = np.log(r)
     lgrid = np.log(TABLE_RE)
@@ -671,6 +701,72 @@ def max_power_absorbed(diameter: float, rpm: float, rho: float,
 
 
 @dataclass
+class LoiterCheck:
+    """The loiter operating point, seen from the propeller's side."""
+    v_ms: float
+    rho: float
+    drag_n: float
+    l_over_d: float
+    advance_ratio: float
+    useful_power_w: float                 # T V, before the propeller
+    shaft_power_w: float | None           # None if no blade makes the thrust
+    eta: float | None
+    blades: int | None
+    pitch_over_d: float | None
+    two_blade_max_thrust_n: float
+
+
+def loiter_propulsion_check(design_path: str | Path = DEFAULT_DESIGN,
+                            rho: float = 0.81935,
+                            cl: float = 1.21,
+                            g: float = 9.80665) -> LoiterCheck:
+    """Can the propeller as drawn even hold the loiter point?
+
+    Speed and drag come from the design file's own wing geometry and drag
+    polar at the report's loiter CL; ``rho`` defaults to the ISA density at
+    the 4000 m loiter altitude.
+
+    This exists because the answer turned out not to be the obvious one. The
+    baseline disc has to work at J ~ 1.25 in loiter, which is a very high
+    advance ratio for a 0.813 m propeller at 2100 rpm, and with the assumed
+    blade planform a TWO-blade propeller cannot produce the required thrust
+    at any pitch. It takes three blades at pitch/D ~ 2.0 to hold the loiter
+    point, and it costs more shaft power than the report's ~3.4 kW figure.
+    """
+    from argus7.design.geometry import derive_wing
+    from argus7.design.schema import load_design
+
+    d = load_design(design_path)
+    wing = derive_wing(d.wing)
+    w_n = d.masses.mtow * g
+    cd = d.aero.cd0 + cl ** 2 / (math.pi * wing.aspect_ratio * d.aero.oswald_e)
+    v = math.sqrt(2.0 * w_n / (rho * wing.area_m2 * cl))
+    drag = w_n * cd / cl
+    D = d.propulsion.prop_diameter_m
+    rpm = d.propulsion.prop_rpm
+
+    best = None
+    two_blade_max = -np.inf
+    for b in BLADE_COUNT_SWEEP:
+        for pod in np.linspace(0.4, 2.6, 34):
+            r = run_bemt(constant_pitch_blade(D, pod * D, blades=b),
+                         rpm=rpm, v_ms=v, rho=rho)
+            if b == 2:
+                two_blade_max = max(two_blade_max, r.thrust_n)
+            if r.thrust_n >= drag and (best is None or r.power_w < best[0].power_w):
+                best = (r, b, pod)
+
+    return LoiterCheck(
+        v_ms=v, rho=rho, drag_n=drag, l_over_d=cl / cd,
+        advance_ratio=v / ((rpm / 60.0) * D), useful_power_w=drag * v,
+        shaft_power_w=None if best is None else best[0].power_w,
+        eta=None if best is None else best[0].eta,
+        blades=None if best is None else int(best[1]),
+        pitch_over_d=None if best is None else float(best[2]),
+        two_blade_max_thrust_n=float(two_blade_max))
+
+
+@dataclass
 class PropulsionClosure:
     """Both ways to close a propulsion set that does not close as drawn."""
     power_kw: float
@@ -793,7 +889,29 @@ def baseline_finding_report(design_path: str | Path = DEFAULT_DESIGN,
         f"BEMT best power      : {best_w / 1000.0:.2f} kW  "
         f"-- short of rated by a factor of {kw * 1000.0 / best_w:.1f}",
         "",
-        "Loiter (~3.4 kW shaft) is inside this. Climb and takeoff are not:",
+    ]
+
+    lc = loiter_propulsion_check(design_path)
+    lines += [
+        "LOITER, measured rather than assumed",
+        f"  V {lc.v_ms:.1f} m/s at rho {lc.rho:.3f}, drag {lc.drag_n:.1f} N, "
+        f"L/D {lc.l_over_d:.1f}, J = {lc.advance_ratio:.2f}",
+        f"  useful power T*V   : {lc.useful_power_w / 1000.0:.2f} kW",
+    ]
+    if lc.shaft_power_w is None:
+        lines.append("  NO blade in the sweep holds the loiter point.")
+    else:
+        lines += [
+            f"  shaft power needed : {lc.shaft_power_w / 1000.0:.2f} kW "
+            f"at eta {lc.eta:.2f}, {lc.blades} blades, "
+            f"pitch/D {lc.pitch_over_d:.2f}",
+            f"  a TWO-blade of this planform tops out at "
+            f"{lc.two_blade_max_thrust_n:.0f} N against {lc.drag_n:.0f} N "
+            f"required -- loiter needs three blades and a coarse one",
+        ]
+    lines += [
+        "So loiter is holdable, but only just, and it costs more than the",
+        "report's ~3.4 kW. Climb and takeoff are not holdable at all:",
         "the propeller, not the engine, is the limit.",
         "",
         "TWO CLOSURES",

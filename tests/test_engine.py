@@ -141,13 +141,42 @@ def test_bsfc_falls_monotonically_as_load_rises(e):
     assert all(y < x for x, y in zip(b, b[1:]))
 
 
-def test_bsfc_penalty_knee_is_below_about_40_percent_load(e):
-    """The curve must bend, not merely slope: the penalty per unit load lost
-    below 40% must exceed that above it."""
-    b40 = e.bsfc_g_per_kwh(0.40 * e.rated_power_w, e.rated_rpm)
-    b20 = e.bsfc_g_per_kwh(0.20 * e.rated_power_w, e.rated_rpm)
-    b60 = e.bsfc_g_per_kwh(0.60 * e.rated_power_w, e.rated_rpm)
-    assert (b20 - b40) > 2.0 * (b40 - b60)
+def test_bsfc_part_load_penalty_has_the_right_MAGNITUDE_below_40_percent(e):
+    """The "worsens markedly below ~40% load" behaviour, tested by MAGNITUDE.
+
+    ADVERSARIAL REVIEW 2026-08-20 -- this test replaces a vacuous one. It
+    previously read
+
+        assert (b20 - b40) > 2.0 * (b40 - b60)
+
+    which CANNOT FAIL. For a Willans hyperbola BSFC(P) = k*(1 + L/P) the excess
+    over the full-load value is exactly proportional to (1/f - 1), so
+    (b20 - b40)/(b40 - b60) = (5 - 2.5)/(2.5 - 1.6667) = 3.0 identically --
+    independent of k, of L, of RPM and of every constant in the module.
+    Verified by sweeping FRICTION_POWER_FRACTION_AT_RATED over [0.05, 0.5] and
+    FMEP_ZERO_SPEED_FRACTION over [0.1, 0.9]: the ratio is 3.0000000000 in
+    every case. The old test asserted 3.0 > 2.0 and said nothing about 40%.
+
+    Every ratio of differences at fixed load fractions is invariant for this
+    model, so the ONLY discriminating quantity is the absolute size of the
+    penalty, which is set by FRICTION_POWER_FRACTION_AT_RATED alone.
+    """
+    b = lambda f: e.bsfc_g_per_kwh(f * e.rated_power_w, e.rated_rpm)
+    full = b(1.00)
+
+    # Above ~60% load the penalty is small; below 40% it is not. These
+    # thresholds move if the friction fraction moves, which is the point.
+    assert b(0.80) / full == pytest.approx(1.038, abs=0.005)   # 3.8%  negligible
+    assert b(0.60) / full == pytest.approx(1.102, abs=0.005)   # 10.2% tolerable
+    assert b(0.40) / full > 1.15                               # 22.9% marked
+    assert b(0.20) / full > 1.45                               # 61.0% ruinous
+
+    # And the penalty is a function of the friction constant and NOTHING else
+    # -- not of the 270 g/kWh calibration, not of the reference load fraction.
+    # Stated as an identity so that a change of model shape breaks this test
+    # instead of silently keeping the old magnitudes.
+    c = eng.FRICTION_POWER_FRACTION_AT_RATED
+    assert b(0.20) / full - 1.0 == pytest.approx(4.0 * c / (1.0 + c), rel=1e-9)
 
 
 def test_zero_or_negative_shaft_power_has_no_defined_bsfc(e):
@@ -203,7 +232,13 @@ def test_report_loiter_shaft_power_back_solves_from_the_report(design):
     """101.5 kg / 112.8 h at 270 g/kWh implies 3.333 kW of shaft -- which is
     the "shaft ~3.4 kW incl. 0.5 kW electrical" of section 4."""
     implied = design.masses.fuel / REPORT_ENDURANCE_H / (REPORT_BSFC_FLAT / 1e3)
-    assert eng.REPORT_LOITER_SHAFT_POWER_W / 1e3 == pytest.approx(implied, rel=2e-3)
+    # ADVERSARIAL REVIEW 2026-08-20: tolerance tightened from 2e-3 to 1e-9.
+    # eng.REPORT_FUEL_MASS_KG is a hardcoded copy of design.masses.fuel that a
+    # module-level constant cannot read from the loader; at 2e-3 the design's
+    # fuel mass could drift by up to 200 g before this noticed, and every
+    # endurance number downstream would be quietly wrong. Exact now.
+    assert eng.REPORT_FUEL_MASS_KG == design.masses.fuel
+    assert eng.REPORT_LOITER_SHAFT_POWER_W / 1e3 == pytest.approx(implied, rel=1e-9)
     assert eng.REPORT_LOITER_SHAFT_POWER_W / 1e3 == pytest.approx(3.4, abs=0.1)
 
 
@@ -257,19 +292,66 @@ def test_loiter_is_deep_part_load(e, design):
 def test_mapped_loiter_bsfc_lands_in_the_reports_walkaway_band(e):
     """Independent corroboration of the report's own risk register: it says
     'dyno mapping shows 300-320 g/kWh at the 3.5 kW loiter point (not 270)'
-    and sets a walk-away at >300. The Willans part-load map lands at ~321."""
+    and sets a walk-away at >300. The Willans part-load map lands at ~321.
+
+    ADVERSARIAL REVIEW 2026-08-20 -- READ THIS BEFORE QUOTING THE RESULT. The
+    `b > 300` assertion below is a programme KILL DECISION, and it is decided
+    by BSFC_REF_LOAD_FRACTION, an unsourced constant, not by the physics.
+    Sweeping it at FRICTION_POWER_FRACTION_AT_RATED = 0.18:
+        0.50 -> 292.9 g/kWh, 4.33 d  -- tripwire does NOT fire
+        0.60 -> 306.5 g/kWh, 4.14 d
+        0.75 -> 321.3 g/kWh, 3.95 d  -- as coded
+        0.90 -> 332.0 g/kWh, 3.82 d
+    Reconciling FRICTION_POWER_FRACTION_AT_RATED with the 1/7.55 implicit in
+    gagg_farrar_lapse moves it to 309.8 g/kWh / 4.10 d -- still firing, but by
+    10 g/kWh rather than 21. This test records what the current assumptions
+    imply. It is NOT evidence that the engine misses the tripwire; only a dyno
+    is, which is exactly what report section 5 tripwire 3 says.
+    """
     b = e.bsfc_g_per_kwh(eng.REPORT_LOITER_SHAFT_POWER_W, e.loiter_crank_rpm)
     assert b == pytest.approx(321.3, abs=2.0)
     assert b > REPORT_WALKAWAY_BSFC
 
 
-def test_fuel_flow_units_are_self_consistent(e):
-    p_w, rpm = 4000.0, e.loiter_crank_rpm
-    b = e.bsfc_g_per_kwh(p_w, rpm)
-    kg_h = e.fuel_flow_kg_h(p_w, rpm, 0.0)
-    kg_s = e.fuel_flow_kg_s(p_w, rpm, 0.0)
-    assert kg_h == pytest.approx(b * (p_w / 1e3) / 1e3)
-    assert kg_s == pytest.approx(kg_h / 3600.0)
+def test_fuel_flow_units_against_a_hand_computed_anchor(e):
+    """ADVERSARIAL REVIEW 2026-08-20 -- this test replaces a tautological one.
+
+    It previously asserted
+
+        kg_h == pytest.approx(b * (p_w / 1e3) / 1e3)
+
+    which is character-for-character the expression inside fuel_flow_kg_h. A
+    duplicated implementation cannot detect a unit error in the thing it
+    duplicates; the assertion held for any scale factor, right or wrong.
+
+    Anchored instead on arithmetic done by hand, off the module: an engine
+    burning 270 g of fuel per kWh, producing exactly 1.000 kW, burns 270 g in
+    one hour = 0.270 kg/h = 7.5e-5 kg/s. Nothing on the right-hand side comes
+    from the code under test.
+    """
+    kg_h = e.fuel_flow_kg_h(1000.0, e.loiter_crank_rpm, 0.0, bsfc_g_per_kwh=270.0)
+    kg_s = e.fuel_flow_kg_s(1000.0, e.loiter_crank_rpm, 0.0, bsfc_g_per_kwh=270.0)
+    assert kg_h == pytest.approx(0.270, rel=1e-12)
+    assert kg_s == pytest.approx(7.5e-5, rel=1e-12)
+
+    # Doubling the power at fixed BSFC must exactly double the flow.
+    assert e.fuel_flow_kg_h(2000.0, e.loiter_crank_rpm, 0.0, 270.0) == pytest.approx(
+        0.540, rel=1e-12
+    )
+
+
+def test_a_nonsense_bsfc_override_is_rejected_not_propagated(e):
+    """ADVERSARIAL REVIEW 2026-08-20: the override path was unvalidated. A
+    negative BSFC gave a negative fuel flow and endurance_h then returned
+    -112.8 h without a murmur; zero gave a bare ZeroDivisionError one frame up.
+    """
+    for bad in (-270.0, 0.0):
+        with pytest.raises(ValueError):
+            e.fuel_flow_kg_h(3000.0, e.loiter_crank_rpm, 0.0, bsfc_g_per_kwh=bad)
+        with pytest.raises(ValueError):
+            e.endurance_h(100.0, 3000.0, e.loiter_crank_rpm, 0.0, bsfc_g_per_kwh=bad)
+    with pytest.raises(ValueError):
+        e.fuel_flow_kg_h(0.0, e.loiter_crank_rpm, 0.0, bsfc_g_per_kwh=270.0)
 
 
 # --------------------------------------------------------------------------
@@ -295,6 +377,105 @@ def test_the_design_prop_rpm_cannot_reach_the_17_kw_rating(e, design):
     sl = e.power_available_w(e.loiter_crank_rpm, 0.0)
     assert sl / 1e3 == pytest.approx(12.07, abs=0.05)
     assert sl < design.propulsion.power_max_kw * 1e3
+
+
+def test_rating_reachable_predicate_reports_the_non_closure(e, design):
+    """ADVERSARIAL REVIEW 2026-08-20: the module's headline non-closure API had
+    ZERO test references -- the same fact was re-derived by hand in the test
+    above instead. It must be False here, and it must not RAISE for an
+    over-geared design, which it did for any prop RPM above ~3,750 (crank past
+    1.15 x rated fell outside the fitted band and threw ValueError out of a
+    predicate whose whole job is to diagnose bad gearing)."""
+    assert e.rating_reachable_at_design_gearing() is False
+
+    over = design.model_copy(
+        update={"propulsion": design.propulsion.model_copy(update={"prop_rpm": 4000.0})},
+        deep=True,
+    )
+    assert Engine.from_design(over).rating_reachable_at_design_gearing() is False
+
+    # ...and it must be True for gearing that does put the crank on the peak.
+    ok_prop_rpm = eng.RATED_RPM / design.propulsion.reduction_ratio
+    ok = design.model_copy(
+        update={
+            "propulsion": design.propulsion.model_copy(
+                update={"prop_rpm": ok_prop_rpm}
+            )
+        },
+        deep=True,
+    )
+    assert Engine.from_design(ok).rating_reachable_at_design_gearing() is True
+
+
+def test_bmep_at_rating_contradicts_the_friction_constants_stated_source(e, design):
+    """ADVERSARIAL REVIEW 2026-08-20. FRICTION_POWER_FRACTION_AT_RATED = 0.18
+    was justified as "~1.7 bar FMEP against ~9.5 bar BMEP". BMEP is not free to
+    assume -- the design fixes it. 2 x 17 kW / (250e-6 m3 x 125 rev/s) = 10.88
+    bar, so 1.7 bar FMEP gives 0.156 and 0.18 needs 1.96 bar. The stated source
+    does not reconstruct the constant either way, and it is the constant the
+    whole part-load penalty rests on. Asserted here so the discrepancy is a
+    standing fact in the suite, not a comment nobody re-derives."""
+    assert e.bmep_at_rating_pa / 1e5 == pytest.approx(10.88, abs=0.02)
+    implied_fmep_bar = eng.FRICTION_POWER_FRACTION_AT_RATED * e.bmep_at_rating_pa / 1e5
+    assert implied_fmep_bar == pytest.approx(1.96, abs=0.02)
+    assert implied_fmep_bar > 1.7          # NOT the 1.7 bar the comment cited
+
+    # And it must track the design, not a literal.
+    big = design.model_copy(
+        update={
+            "propulsion": design.propulsion.model_copy(
+                update={"engine_displacement_cc": 500.0}
+            )
+        },
+        deep=True,
+    )
+    assert Engine.from_design(big).bmep_at_rating_pa == pytest.approx(
+        e.bmep_at_rating_pa / 2.0
+    )
+
+
+def test_the_two_friction_fractions_in_this_module_disagree(e):
+    """ADVERSARIAL REVIEW 2026-08-20 -- an internal inconsistency, asserted so
+    it cannot be forgotten. gagg_farrar_lapse's 1/7.55 IS friction power as a
+    fraction of rated brake power (P/P0 = sigma - phi*(1-sigma) follows from
+    P_b = sigma*P_i - P_f), and so is FRICTION_POWER_FRACTION_AT_RATED. They
+    are 0.1325 and 0.18: the same physical quantity, 36% apart, one used for
+    the altitude lapse and the other for the BSFC map. Delete this test when
+    they are reconciled -- not before."""
+    # Recover phi from the lapse law itself: P/P0 = sigma - phi*(1 - sigma).
+    sigma = 0.5
+    phi_lapse = (sigma - eng.gagg_farrar_lapse(sigma)) / (1.0 - sigma)
+    assert phi_lapse == pytest.approx(1.0 / 7.55, rel=1e-9)
+    assert eng.FRICTION_POWER_FRACTION_AT_RATED == 0.18
+    assert abs(eng.FRICTION_POWER_FRACTION_AT_RATED - phi_lapse) > 0.04
+
+
+def test_the_calibrated_asymptote_is_a_physically_possible_engine(e):
+    """The asymptote's own docstring calls its indicated efficiency "the check
+    that the calibration has not been pushed into fantasy" -- and nothing
+    checked it (ADVERSARIAL REVIEW 2026-08-20: zero test references to
+    bsfc_asymptote_g_per_kwh). A spark-ignition mogas single cannot exceed
+    ~45% indicated; below ~30% the calibration would be pessimistic nonsense."""
+    k = e.bsfc_asymptote_g_per_kwh
+    assert k == pytest.approx(217.74, abs=0.05)
+    eta_indicated = 3.6e9 / (eng.FUEL_LHV_J_PER_KG * k)
+    assert eta_indicated == pytest.approx(0.380, abs=0.005)
+    assert 0.30 < eta_indicated < 0.45
+
+    # Brake thermal efficiency at the loiter point, the number that actually
+    # decides the mission: 25.8%, against 33.5% at the 75%-load anchor.
+    assert e.brake_thermal_efficiency(
+        eng.REPORT_LOITER_SHAFT_POWER_W, e.loiter_crank_rpm
+    ) == pytest.approx(0.2576, abs=0.002)
+
+
+def test_gearing_conversions_round_trip(e, design):
+    assert e.prop_rpm_for_crank_rpm(e.loiter_crank_rpm) == pytest.approx(
+        design.propulsion.prop_rpm
+    )
+    assert e.crank_rpm_for_prop_rpm(design.propulsion.prop_rpm) == pytest.approx(
+        e.loiter_crank_rpm
+    )
 
 
 def test_climb_power_at_the_design_prop_rpm_does_not_close(e):

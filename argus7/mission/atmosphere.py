@@ -38,9 +38,21 @@ lapse rate steps from -6.5 K/km to 0.  At exactly 11 km autograd returns the
 tropospheric one-sided derivative -- finite, never NaN.  If a smooth second
 derivative is needed (trajectory optimisation that crosses the tropopause),
 pass ``blend_m`` to replace the hard min with a softmin of that width; the
-result is C-infinity and matches the exact ISA to <1e-6 relative more than a few
-blend widths away from 11 km.  ARGUS-7 loiters at 4 km, so the default is the
-exact, unblended ISA.
+result is C-infinity and matches the exact ISA to <1e-6 relative more than about
+four blend widths away from 11 km.  ARGUS-7 loiters at 4 km, so the default is
+the exact, unblended ISA.
+
+``blend_m > 0`` COSTS HYDROSTATIC EXACTNESS, which is why it is not the default.
+The closed form below is the hydrostatic solution only because ``H - Hc`` and
+``dHc/dH`` are never simultaneously non-zero with a hard min.  A softmin makes
+them overlap near the tropopause and leaves a residual
+
+    (dp/dH + rho*g)/(rho*g) = (H - Hc) * |L| * (dHc/dH) / T,
+
+whose maximum over H is exactly ``blend_m*|L|/(e*T_tropopause)`` = 1.10e-5 per
+metre of blend width (1.1e-3 at blend_m = 100 m).  Density and pressure gradient
+therefore describe slightly different atmospheres inside the blend band.  With
+``blend_m = 0`` the same residual is ~4e-16, i.e. machine zero.
 
 Range
 -----
@@ -62,11 +74,15 @@ import torch.nn.functional as F
 # --- ISA defining constants (ICAO Doc 7488/3) ------------------------------
 T0_K = 288.15                 # sea-level temperature
 P0_PA = 101325.0              # sea-level pressure
-LAPSE_RATE_KM = -0.0065       # troposphere temperature gradient [K/m]
+LAPSE_RATE_KM = -0.0065       # troposphere temperature gradient [K/m], NOT K/km.
+                              # The trailing "KM" is a misnomer kept for backward
+                              # compatibility; prefer LAPSE_RATE_K_PER_M below.
 TROPOPAUSE_M = 11000.0        # geopotential altitude of the 11 km break
 T_TROPOPAUSE_K = T0_K + LAPSE_RATE_KM * TROPOPAUSE_M   # 216.65 K
 GRAVITY_MS2 = 9.80665         # standard gravity, constant with geopotential H
-R_AIR_JKGK = 287.05287        # R* / M = 8314.32 / 28.9644, ICAO value
+R_AIR_JKGK = 287.05287        # ICAO value = R*/M = 8314.32 / 28.96442.
+                              # (M = 28.9644 gives 287.05307 -- close, but not the
+                              #  defining constant; do not "correct" this to that.)
 GAMMA_AIR = 1.4               # ratio of specific heats, calorically perfect air
 EARTH_RADIUS_M = 6356766.0    # ISA nominal Earth radius for the H <-> h map
 
@@ -84,6 +100,10 @@ RHO0_KGM3 = P0_PA / (R_AIR_JKGK * T0_K)
 
 _PRESSURE_EXPONENT = -GRAVITY_MS2 / (LAPSE_RATE_KM * R_AIR_JKGK)  # +5.25588
 
+# Unambiguously-named alias for LAPSE_RATE_KM, whose name reads as K/km but whose
+# value is K/m.  Downstream modules should import this one.
+LAPSE_RATE_K_PER_M = LAPSE_RATE_KM
+
 __all__ = [
     "Atmosphere",
     "isa",
@@ -91,7 +111,8 @@ __all__ = [
     "geopotential_altitude",
     "geometric_altitude",
     "T0_K", "P0_PA", "RHO0_KGM3", "GRAVITY_MS2", "R_AIR_JKGK", "GAMMA_AIR",
-    "LAPSE_RATE_KM", "TROPOPAUSE_M", "T_TROPOPAUSE_K",
+    "LAPSE_RATE_KM", "LAPSE_RATE_K_PER_M", "TROPOPAUSE_M", "T_TROPOPAUSE_K",
+    "EARTH_RADIUS_M", "SUTHERLAND_BETA", "SUTHERLAND_S_K",
     "ISA_MIN_ALTITUDE_M", "ISA_MAX_ALTITUDE_M",
 ]
 
@@ -147,6 +168,8 @@ def geometric_altitude(geopotential_m) -> torch.Tensor:
 
 def _check_range(H: torch.Tensor) -> None:
     Hd = H.detach()
+    if Hd.numel() == 0:
+        return  # nothing to validate; min()/max() would raise on an empty tensor
     if not bool(torch.isfinite(Hd).all()):
         raise ValueError("altitude contains non-finite values (NaN or inf)")
     lo, hi = float(Hd.min()), float(Hd.max())
@@ -186,6 +209,9 @@ def isa(
         ``(temperature_K, pressure_Pa, density_kgm3, speed_of_sound_ms,
         dynamic_viscosity_Pas)``.
     """
+    if blend_m < 0.0:
+        # Silently falling through to the hard min would hide a caller's sign error.
+        raise ValueError(f"blend_m must be >= 0, got {blend_m}")
     H = _as_float_tensor(altitude_m)
     if geometric:
         H = EARTH_RADIUS_M * H / (EARTH_RADIUS_M + H)

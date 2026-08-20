@@ -44,7 +44,10 @@ report itself brackets C_D0 as 0.016 optimistic clean build / 0.020 realistic
 optimistic clean build: only the four wetted bodies the design file defines,
 with a measured laminar run, plus a leakage-and-protuberance allowance.
 
-The difference has to be made of things the design file does not describe:
+PART of the difference is method error in this module, not missing hardware
+-- see the NeuralFoil cross-check below, which is worth ~0.0009 -- and part of
+it is pressure drag this friction build-up structurally cannot carry. The rest
+has to be made of things the design file does not describe:
 
   * the 50 kg payload installation -- a gimballed EO/IR ball of ~0.3 m
     diameter at C_D 0.4 on frontal area is alone worth ~0.007 in C_D0, more
@@ -71,6 +74,48 @@ installation at all (in which case the endurance model is
 anti-conservative), or it is a laminar build-up that does include that
 hardware and the agreement is a coincidence. Guarded by
 tests/test_buildup.py::test_fully_turbulent_wing_reproduces_the_report_baseline.
+
+CROSS-CHECK AGAINST NEURALFOIL, AND A KNOWN BIAS IN THE WING TERM
+-----------------------------------------------------------------
+The wing is 48% of the drag area, so it was checked strip-by-strip against
+NeuralFoil (xxlarge) on the same FX 63-137 coordinates, at each strip's own
+Reynolds number, with the section trimmed to Cl = 1.21. Two results:
+
+  * TRANSITION IS CORROBORATED. NeuralFoil puts upper-surface transition at
+    x/c 0.547 (root, Re 991k) to 0.599 (tip, Re 459k), against the 0.5023 to
+    0.6051 this module interpolates from the verified XFOIL runs. It also
+    confirms the docstring's assumption on X_TR_WING_* that the lower surface
+    runs at least as far laminar (0.585 root, 0.634 tip).
+
+  * DRAG IS BIASED LOW AT THE LOITER LIFT COEFFICIENT. Integrated over the
+    exposed span, the Cf*FF build-up gives a wing drag area of 0.02884 m2
+    against NeuralFoil's 0.03207 m2 -- 11.2% low, i.e. +0.00088 in C_D0. The
+    cause is structural, not a coding error: Raymer's form factor (eq. 12.30)
+    is a function of t/c and (x/c)_m only, so it is a MINIMUM-DRAG pressure
+    correlation with no Cl dependence. At the minimum-drag point it is in fact
+    slightly HIGH (0.00784 vs NeuralFoil's 0.00735 at the MAC), which is the
+    signature of exactly this: the method is calibrated near zero lift and
+    ARGUS-7 loiters at Cl 1.21, where the real section carries considerably
+    more pressure drag. Washout shrinks the gap but does not close it -- even
+    letting the tip strip run at Cl 0.75 leaves the tip 3% low.
+
+    This module therefore has it both ways: it takes a transition location
+    MEASURED at Cl 1.21 (lift-dependent) and pairs it with a form factor valid
+    near zero lift, then labels the result C_D0 and compares it to a design
+    file whose polar is C_D = C_D0 + C_L^2/(pi AR e) with e = 0.85. Consumers
+    should know that the number this returns is neither a clean zero-lift
+    C_D0 nor the full profile drag at loiter. A lifting-line or panel module
+    that carries section drag as a function of local Cl is the right fix; this
+    correlation cannot be repaired by adjusting a constant in it.
+
+The consequence for the headline disagreement is that the -23.6% gap is less
+certain than it looks. The wing bias (+0.00088) plus the two base-drag terms
+this module names but does not carry (boom end discs +0.00049, fuselage base
++0.00080 at C_Db 0.15, the latter arguable because the pusher propeller works
+that base) come to roughly +0.0022, which would put C_D0 near 0.0175 -- INSIDE
+the +/-15% gate, with no payload turret invoked at all. Read
+test_total_cd0_against_report_baseline with that in mind: the sign of the
+disagreement is solid, its size is not.
 
 UNITS: SI throughout.
 """
@@ -501,10 +546,20 @@ def boom_component(design, flow: FlowCondition,
                    x_tr: float = X_TR_BOOM) -> Component:
     """Both tail booms: plain cylinders of the derived length.
 
-    No deduction is made for the length buried in the wing (the joint lets the
-    top ~22% of the boom into the wing over ~0.55 m of its 3.65 m), nor are
-    the end discs added. The two are of similar size and opposite sign, both
-    under 1% of the boom wetted area.
+    No deduction is made for the length buried in the wing, nor are the end
+    discs added. MEASURED, not asserted: the joint lets the top 19.5 mm of the
+    90 mm boom into the wing (burial half-angle 55.5 deg, so 30.8% of the
+    circumference) over the local wing chord of ~0.55 m, which is 0.0964 m2 =
+    4.68% of the boom wetted area. The two end discs are 0.0127 m2 = 0.62%.
+    They are therefore NOT of similar size -- the net is about -4% of boom
+    friction, i.e. -0.00009 in C_D0, which is why it is still ignored.
+
+    Separately, and NOT ignorable at the same level: the aft end disc is a
+    BASE, and Hoerner ch. 13 gives a blunt base C_D of order 0.1-0.2 on its
+    own area. At 0.15 that is +0.00049 in C_D0 for the pair -- a third of the
+    booms' entire friction contribution. Like the fuselage base it is a
+    pressure term this friction build-up does not carry; see the module
+    docstring.
     """
     g = derive_wing(design.wing)
     bg = derive_booms(design)
@@ -524,9 +579,16 @@ def tail_component(design, flow: FlowCondition,
                    x_tr: float = X_TR_TAIL) -> Component:
     """Both panels of the inverted-V tail, both surfaces.
 
-    derive_tail_panel already converts the design file's PROJECTED horizontal
-    area into the true panel area (S_h / (2 cos^2 gamma)); using the projected
-    area here would understate the wetted area by 1/cos^2(42 deg) = 1.81.
+    derive_tail_panel converts design.tail.area_h_m2 into the true panel area
+    as S_h / (2 cos^2 gamma). Note the cos^2: that identity means area_h_m2 is
+    the EQUIVALENT (effective) horizontal tail area of the V -- the quantity a
+    tail-volume coefficient is written in -- and NOT the geometric projection
+    of the panels onto the horizontal plane, which would be 2 A cos gamma and
+    would give A = S_h / (2 cos gamma) instead. The distinction is worth 1.139
+    vs 0.847 m2 of wetted area here (dC_D0 0.00040), so it matters; the
+    effective-area reading is the correct one for a V-tail sized by volume
+    coefficient, and it is the convention derive_tail_panel and the CAD share.
+    Either way, using S_h itself as a wetted area would be badly wrong.
     """
     g = derive_wing(design.wing)
     tp = derive_tail_panel(design)

@@ -452,6 +452,13 @@ def get_surrogate(
     weight upload, which is precisely the cost this module exists to remove.
     """
     coords = np.asarray(coords, dtype=float)
+    # Resolve the device BEFORE it enters the key. `None`, "cuda" and
+    # torch.device("cuda") all name the same device, and keying on the raw
+    # argument gave each of them its own resident copy of the weights --
+    # which is precisely the duplication this cache exists to prevent.
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = torch.device(device)
     key = (coords.tobytes(), coords.shape, model_size, str(device), str(dtype))
     s = _CACHE.get(key)
     if s is None:
@@ -581,7 +588,8 @@ def validate_against_xfoil(
         alpha: angles of attack in degrees.
         Re: chord Reynolds number, the same for both codes.
         runner: callable(airfoil_name, alphas, Re, n_crit, n_panels) returning
-            one dict per alpha with "CL", "CD", "CM" and "converged".
+            one dict per alpha with "CL", "CD", "CM" and "converged". A row
+            that omits "converged" is recorded as NOT converged.
             Defaults to an adapter onto argus7.aero.xfoil_driver.polar_sweep.
 
     Returns:
@@ -620,6 +628,11 @@ def validate_against_xfoil(
             "CM_neural": cm_n, "CM_xfoil": cm_x, "dCM": cm_n - cm_x,
             "analysis_confidence": float(nf.analysis_confidence[i]),
             "low_confidence": bool(nf.low_confidence[i]),
-            "converged": bool(xf.get("converged", True)),
+            # A runner that does not report convergence is recorded as NOT
+            # converged. XFOIL emits perfectly plausible CL/CD/Cm for a point
+            # that never converged -- that is the whole point of the
+            # programme's XFOIL rule (e) -- so "no information" must not
+            # default to "trust it".
+            "converged": bool(xf.get("converged", False)),
         })
     return rows

@@ -153,8 +153,26 @@ BSFC_WALKAWAY_G_PER_KWH = 300.0      # section "Tripwires": walk away if the
 # report does not say; 0.75 is the conventional cruise-rating point at which a
 # manufacturer's headline BSFC is quoted, and anchoring there rather than at the
 # loiter point is the conservative reading -- anchoring 270 g/kWh AT the loiter
-# point would imply a ~218 g/kWh asymptote, i.e. diesel-class efficiency from a
-# spark-ignition mogas single, which no candidate engine in section 6 supports.
+# point would imply a 183.0 g/kWh asymptote, i.e. 45.2% INDICATED efficiency
+# from a spark-ignition mogas single, which no candidate engine in section 6
+# supports. (ADVERSARIAL REVIEW 2026-08-20: this comment previously said
+# "~218 g/kWh"; 217.7 is the asymptote this file actually calibrates to at
+# 0.75 load, not the one a loiter-point anchor would give. Recomputed:
+# 270/(1 + 1584.8/3332.7) = 183.0. The argument is unaffected -- 45% indicated
+# is even less defensible than the 38% the mis-stated number implied -- but the
+# figure was wrong.)
+#
+# ADVERSARIAL REVIEW: THIS IS THE MOST LOAD-BEARING UNSOURCED NUMBER IN THE
+# FILE. It, not the physics, decides whether the report's >300 g/kWh walk-away
+# tripwire fires. Sweeping it at FRICTION_POWER_FRACTION_AT_RATED = 0.18:
+#     0.50 -> loiter BSFC 292.9 g/kWh, 4.33 d  -- tripwire does NOT fire
+#     0.60 -> 306.5 g/kWh, 4.14 d              -- fires
+#     0.75 -> 321.3 g/kWh, 3.95 d              -- fires (as coded)
+#     0.90 -> 332.0 g/kWh, 3.82 d              -- fires
+# 0.50 is not an absurd alternative reading. Nothing in the report says at what
+# load its 270 g/kWh holds, so the walk-away conclusion in
+# tests/test_engine.py::test_mapped_loiter_bsfc_lands_in_the_reports_walkaway_band
+# is an assumption's output, not a measurement's.
 BSFC_REF_LOAD_FRACTION = 0.75
 
 # ASSUMPTION. Alternator/rectifier/regulator chain efficiency from crank to
@@ -171,7 +189,22 @@ ALTERNATOR_EFFICIENCY = 0.75
 # path" of section 4, to the precision the prose was rounded to. Held here as a
 # constant because the aero side of it (2.8 kW aero at 250 kg) belongs to the
 # aerodynamics module, not this one.
-REPORT_LOITER_SHAFT_POWER_W = 101.5 / 112.8 / 0.270 * 1e3
+#
+# ADVERSARIAL REVIEW 2026-08-20: REPORT_FUEL_MASS_KG DUPLICATES design.masses.fuel.
+# A module-level constant cannot read the design file, and this quantity is a
+# statement about what the REPORT computed, not about the current design -- but
+# if design/*.yaml's fuel mass is ever changed this constant becomes silently
+# stale. tests/test_engine.py::test_report_loiter_shaft_power_back_solves_from
+# _the_report pins it against design.masses.fuel to 1e-9 so that divergence is
+# a loud failure here rather than a quiet 15% error in an endurance number.
+# The literal 0.270 was also replaced by BSFC_REPORT_FLAT_G_PER_KWH so the two
+# copies of the report's BSFC cannot drift apart.
+REPORT_FUEL_MASS_KG = 101.5           # report section 3 mass budget, "Fuel"
+REPORT_ENDURANCE_H = 112.8            # report section 4 mission table, "Local ops"
+REPORT_LOITER_SHAFT_POWER_W = (
+    REPORT_FUEL_MASS_KG / REPORT_ENDURANCE_H
+    / (BSFC_REPORT_FLAT_G_PER_KWH / 1e3) * 1e3
+)
 
 # Gasoline lower heating value, J/kg (mogas, per report section 6 item 1's fuel
 # choice). Used only to report thermal efficiency, never in the fuel-flow path.
@@ -214,6 +247,15 @@ def gagg_farrar_lapse(sigma: float) -> float:
     losses do not lapse: indicated power scales with sigma, brake power is
     indicated minus a nearly density-independent loss. At 4,000 m, sigma =
     0.6687 but the deliverable power ratio is 0.6248.
+
+    CONSISTENCY WARNING (adversarial review 2026-08-20): writing that
+    derivation out gives P/P0 = sigma - phi*(1 - sigma) with
+    phi = P_friction / P_brake,rated, so the 1/7.55 = 0.1325 above IS the same
+    quantity as FRICTION_POWER_FRACTION_AT_RATED, which this module sets to
+    0.18. The two are not reconciled -- see the note on that constant. This
+    function is left on the empirical Gagg-Farrar 7.55 because that is what the
+    literature reference actually says; the BSFC map is the side that carries
+    the unsourced number.
     """
     if not 0.0 < sigma <= 1.0 + 1e-9:      # 1e-9 absorbs float round-trip only
         raise ValueError(f"density ratio {sigma} out of range (0, 1]")
@@ -328,10 +370,32 @@ class Engine:
         not the same as shaft_power/rated_power."""
         return shaft_power_w / self.power_available_w(rpm, altitude_m)
 
+    @property
+    def bmep_at_rating_pa(self) -> float:
+        """Brake mean effective pressure at the rating, Pa.
+
+        Four-stroke: BMEP = 2 * P / (V_d * n). Not decoration -- this is the
+        arithmetic that shows FRICTION_POWER_FRACTION_AT_RATED's stated
+        justification does not reconstruct it: the design's own 250 cc and
+        17 kW at RATED_RPM give 10.88 bar, not the ~9.5 bar that comment
+        assumed. `displacement_cc` was otherwise a dead field on this
+        dataclass, which is why nobody noticed.
+        """
+        rev_per_s = self.rated_rpm / 60.0
+        displacement_m3 = self.displacement_cc * 1e-6
+        return 2.0 * self.rated_power_w / (displacement_m3 * rev_per_s)
+
     def rating_reachable_at_design_gearing(self) -> bool:
         """False, for the v1.0 design: the gearing cannot reach the power peak.
         Exposed as a method so a caller can assert on it instead of discovering
         it in a climb calculation."""
+        # A gearing that puts the crank outside the fitted band cannot reach the
+        # rating either, and must not make this predicate raise -- that was the
+        # behaviour for any prop_rpm above ~3,750 (crank > 1.15 * rated), i.e.
+        # exactly the over-geared cases this method exists to diagnose.
+        x = self.loiter_crank_rpm / self.rated_rpm
+        if not RPM_FRAC_MIN <= x <= RPM_FRAC_MAX:
+            return False
         return math.isclose(
             self.power_available_w(self.loiter_crank_rpm, 0.0),
             self.rated_power_w,
@@ -436,6 +500,13 @@ class Engine:
         make at that condition.
         """
         rpm = self.rated_rpm if rpm is None else rpm
+        # Guarded here as well as in bsfc_g_per_kwh: with a BSFC override the
+        # map is bypassed, and a zero shaft power then returned a zero fuel flow
+        # that endurance_h turned into a ZeroDivisionError rather than a message.
+        if shaft_power_w <= 0.0:
+            raise ValueError(
+                f"shaft power must be positive, got {shaft_power_w} W"
+            )
         available = self.power_available_w(rpm, altitude_m)
         if shaft_power_w > available:
             raise EngineOverloadError(
@@ -444,8 +515,19 @@ class Engine:
                 f"available there (rating {self.rated_power_w/1e3:.1f} kW at "
                 f"{self.rated_rpm:.0f} rpm, sea level)"
             )
-        b = (self.bsfc_g_per_kwh(shaft_power_w, rpm)
-             if bsfc_g_per_kwh is None else bsfc_g_per_kwh)
+        if bsfc_g_per_kwh is None:
+            b = self.bsfc_g_per_kwh(shaft_power_w, rpm)
+        else:
+            # ADVERSARIAL REVIEW 2026-08-20: the override was unvalidated, so a
+            # negative BSFC produced a negative fuel flow and endurance_h then
+            # returned a negative endurance without complaint (-112.8 h for
+            # bsfc=-270). Nonsense in must not become plausible-shaped nonsense
+            # out; a zero override was a bare ZeroDivisionError one level up.
+            if bsfc_g_per_kwh <= 0.0:
+                raise ValueError(
+                    f"BSFC override must be positive, got {bsfc_g_per_kwh} g/kWh"
+                )
+            b = bsfc_g_per_kwh
         return b * (shaft_power_w / 1e3) / 1e3
 
     def fuel_flow_kg_s(self, shaft_power_w: float, rpm: float | None = None,

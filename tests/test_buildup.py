@@ -164,15 +164,28 @@ def test_boom_wetted_area_is_two_cylinders(design, bu):
 
 
 def test_tail_wetted_area_is_both_panels_both_sides(design, bu):
-    """The design file states the PROJECTED horizontal area; the wetted area
-    must be built from the TRUE panel area of both inverted-V panels
-    (derive_tail_panel), both surfaces."""
+    """design.tail.area_h_m2 is the EQUIVALENT horizontal area of the V (it is
+    what derive_tail_panel divides by 2 cos^2 gamma, not by 2 cos gamma). The
+    wetted area must be built from the TRUE panel area of both inverted-V
+    panels, both surfaces."""
     tp = derive_tail_panel(design)
     s_wet = bu.component("tail").wetted_area_m2
     two_panels = 2 * tp.panel_area_m2
     assert s_wet == pytest.approx(2.02 * two_panels, rel=0.03)
-    # projected area would understate it: cos^2(42 deg) = 0.552
-    assert s_wet > 2.0 * design.tail.area_h_m2
+
+    # ADVERSARIAL REVIEW: the old guard here was `s_wet > 2.0 * area_h_m2`,
+    # which does not discriminate -- every wrong candidate below also clears
+    # it. Assert against the actual near-miss alternatives instead.
+    gam = math.radians(design.tail.dihedral_deg)
+    per = B.airfoil_perimeter_ratio(design.tail.airfoil)
+    if_projection = per * design.tail.area_h_m2 / math.cos(gam)   # 2 A cos gamma reading
+    if_no_v_correction = per * design.tail.area_h_m2              # S_h used raw
+    if_one_panel = 0.5 * s_wet                                    # forgot the second panel
+    for wrong, why in [(if_projection, "cos gamma instead of cos^2 gamma"),
+                       (if_no_v_correction, "S_h used as a planform area"),
+                       (if_one_panel, "only one panel counted")]:
+        assert abs(s_wet - wrong) / s_wet > 0.10, f"cannot distinguish: {why}"
+    assert s_wet > if_projection > if_no_v_correction
 
 
 def test_wetted_areas_come_from_the_design_file_not_from_constants(tmp_path, design):
@@ -201,6 +214,23 @@ def test_measured_airfoil_thickness_matches_the_stated_thickness_ratio(design):
     measured = max_thickness(load_airfoil(design.wing.airfoil))
     assert measured == pytest.approx(design.wing.thickness_ratio, rel=0.03)
     assert B.airfoil_thickness(design.wing.airfoil) == pytest.approx(measured, rel=1e-9)
+
+    # ADVERSARIAL REVIEW: the assertion above is a tautology -- airfoil_thickness
+    # IS max_thickness(load_airfoil(name)). The load-bearing claim is that the
+    # form factor is driven by the measured section and not by the name's digits,
+    # so assert that the FF actually MOVES when the measured geometry does.
+    x_tc = B.airfoil_max_thickness_x(design.wing.airfoil)
+    assert 0.20 < x_tc < 0.45, x_tc          # FX 63-137 peaks near 31%, not 30%
+    ff_measured = B.form_factor_airfoil(measured, x_tc)
+    ff_from_name = B.form_factor_airfoil(design.wing.thickness_ratio, 0.30)
+    assert ff_measured != pytest.approx(ff_from_name, rel=1e-6)
+    assert bu_ff(design) == pytest.approx(ff_measured, rel=1e-9)
+
+
+def bu_ff(design):
+    """Form factor the module actually uses for the wing, at incompressible M."""
+    return B.form_factor_airfoil(B.airfoil_thickness(design.wing.airfoil),
+                                 B.airfoil_max_thickness_x(design.wing.airfoil))
 
 
 # --------------------------------------------------------------------------
