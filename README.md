@@ -101,4 +101,25 @@ get them.
   method descriptions in [research/design_pack.md](research/design_pack.md),
   not from runnable code. Regenerating that analysis pipeline is Phase-3
   work, out of scope for this CAD rebuild.
+- **The inverted-V tail hangs 385 mm below the fuselage keel**, and 175 mm below
+  the EO/IR gimbal. With parachute-and-airbag recovery and no landing gear, the
+  tail contacts the ground first on every recovery — the airbag and crush keel
+  that are designed to absorb the 4.5 kJ touchdown never engage. The inverted-V
+  is never justified in the report (§2 states it; the design pack repeats it;
+  neither gives a reason). Its real advantage, proverse roll-yaw coupling, is
+  worth little on an aircraft the design pack specifies for "gentle turning only".
+  An upright V solves ground clearance; an A-frame/connected tail additionally
+  closes a structural loop between the booms, resisting the boom-torsion mode
+  that threatens a high-AR aircraft on 3.65 m booms, and end-plates the
+  horizontal surface for more effectiveness per unit area. Configuration trade
+  deferred to Phase 2, where the aero stack can settle it.
 - Regulatory treatment (§9) is EU headline level only.
+
+## Verified non-issues
+
+- **Propeller/boom clearance is fine.** Boom inner surfaces sit at ±576 mm and
+  the 813 mm prop reaches ±406 mm, giving **169 mm each side** (42% of prop
+  radius), with the prop disc at x = 3.46 m well inside the boom run
+  (0.598–4.244 m). Note the booms do extend aft of the prop disc and therefore
+  sit in its slipstream — a drag and blade-passage-tone consideration for the
+  122-hour fatigue case, not a clearance one.
