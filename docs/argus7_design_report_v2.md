@@ -36,7 +36,7 @@ constraints rather than as things checked afterwards.
 | Loiter altitude | 4,359 m | optimiser variable, bounded [4000, 4500] in the run that produced this point | Inside the sponsor-locked 3,000–4,500 m band, unlike the retired v2.0 which sat at 2,500 m |
 | MTOW | 312.93 kg | `design/argus7_v3.yaml` | **+25% on v1.0's 250 kg.** This crosses the mass band v1.0 §9's entire regulatory case was built at. Declared here, see §10.4 |
 | Wing | 5.9191 m², AR 21.44, span 11.27 m, t/c 0.191 | design file; closure verified by `argus7.design.geometry` | Span is inside the 12 m transport gate with 6.1% margin |
-| Static margin | **+5.79% MAC full, +5.71% dry**, travel −0.08% MAC | `argus7.analysis.balance` on the design file | This is the **authoritative scalar module's** number. The batched model the optimiser searched with reported +10.5%/+7.5%; the two agree to ~5% MAC, not exactly. The design sits at the **bottom edge** of its own 5–15% gate, not mid-band. Reading band across methods: **+1.3% to +11.4% MAC**, §5.4 |
+| Static margin | **+5.79% MAC full, +5.71% dry**, travel −0.08% MAC | `argus7.analysis.balance` on the design file | Stable, and stable on every reading (**+1.3% to +11.4% MAC**, §5.4) — but **this FAILS the programme's own pre-registered gate.** The spec window is **8% ≤ SM ≤ 20% MAC**; the optimiser that produced this point searched **5–15%**, a pre-registered threshold substituted without a ruling. See §5.5 |
 | Fuel | 160.60 kg into a 168.01 kg wing tank | `argus7.opt.design_space.wing_fuel_capacity_kg` | **+7.41 kg (4.4%) margin.** The capacity model is three measured fractions, not a lofted cavity — §10.2 |
 | Mass closure | −0.01 kg residual on 312.93 kg | `argus7.analysis.balance.mass_budget_residual_kg` | Exact to the design file's own precision |
 | Engine | 10.845 kW rated, 30.6% loiter load, **effective BSFC 339 g/kWh** | optimiser; cross-checked against `argus7.prop.engine`, which gives 347 g/kWh at the same point (2% apart) | The 339 rests on a **full-load BSFC of 252 g/kWh, which is the report's aspirational dyno target, not a measured unit.** Both shortlist engines with *verified* BSFC are 330 g/kWh, at which this aircraft flies **4.83 d**, §4.4 |
@@ -65,6 +65,35 @@ justify:
 only engines whose fuel consumption anybody has measured.** That, not aerodynamics,
 is where this design lives or dies, and it is the same finding the gauntlet audit
 reached about the previous challenger.
+
+### Three pre-registered gates this design point does not pass
+
+These are stated here, not in §10, because a report that buries its own failed gates
+is doing the thing this programme keeps being burned by.
+
+1. **Static margin fails the spec window.** The spec
+   (`docs/superpowers/specs/2026-08-20-argus7-cad-sim-optimisation-design.md` line 109)
+   requires **8% ≤ SM ≤ 20% MAC**. The authoritative module measures **+5.79% full,
+   +5.71% dry** — below the floor at both fuel states. The optimiser searched a
+   **5–15%** window instead. Nothing in the repository records a decision to move that
+   threshold. Of the four readings in §5.4, only the AVL-wing-AC-without-Munk one
+   (+11.37%) clears 8%; the analytic (+5.79%), the AVL+Munk (+6.90%) and the
+   analytic+Munk (+1.32%) do not. **The aircraft is stable; the gate is not met.**
+2. **The engine fails gauntlet gate G7 for the same reason v2.0 did.** G7 requires the
+   engine to be *matched to a real unit from report §6's shortlist*. The design rests
+   on a **252 g/kWh full-load BSFC that is an aspirational dyno target**, not a unit
+   (§4.4). That is verbatim the finding that returned **DO NOT ADOPT** on the previous
+   challenger (`docs/decisions/2026-08-20-gauntlet-audit.md`, G7). It has not been fixed; the design
+   point has changed around it.
+3. **The modelled loiter BSFC already trips the programme's own walk-away tripwire.**
+   v1.0 Annex A tripwire #3 is *"walk away if dyno BSFC > 300 g/kWh at the loiter
+   band."* The **modelled** value at this design point is **339.5 g/kWh** — before any
+   engine has been on a dyno. The 6.33 days is computed on a number that, if a dyno
+   returned it, the programme has pre-committed to walking away from.
+
+None of this is an argument that v3.0 is worse than v1.0 — it is measurably better on
+every closure the repository can evaluate. It is an argument that **"passes its
+stability gate" is not among the things this report is entitled to say.**
 
 ---
 
@@ -360,9 +389,10 @@ legitimate pushback on AR is structural mass, and the only legitimate reward is 
   profile drag at lift is represented twice, in two terms neither of which knows about
   the other.
 
-**The open band on the lumped Oswald factor — 0.77 to 0.85 — is worth about −5.6 h**,
-larger than the riblet question and the boom-deletion question combined. It has been
-narrowed by measurement, not closed.
+**The open band on the lumped Oswald factor — 0.77 to 0.85 — is worth −7.0 h on the
+v3.0 design point** (the span-efficiency finding's −5.6 h was computed on v1.0's
+smaller wing and shorter mission). Either way it is larger than the riblet question and
+the boom-deletion question combined. It has been narrowed by measurement, not closed.
 
 ---
 
@@ -396,7 +426,7 @@ airframe.
 | | v1.0 published | v1.0, honest model | **v3.0** |
 |---|---|---|---|
 | Engine rating | 17 kW | 17 kW | **10.845 kW** |
-| Loiter shaft power | ~3.4 kW | 3.33 kW | 3.30 kW |
+| Loiter shaft power | ~3.4 kW | 3.25 kW | 3.30 kW |
 | **Load fraction** | — | **19.0%** | **30.6%** |
 | BSFC assumed / effective | 270 assumed flat | **425 g/kWh** | **339 g/kWh** |
 | Endurance | 4.70 d (claimed) | **3.16 d** | **6.33 d** |
@@ -438,13 +468,14 @@ calibration has not been pushed into fantasy.
 At v3.0's loiter point (3.30 kW at a 7,499 rpm crank) this returns **346.6 g/kWh**.
 
 The optimiser uses a simpler fit to the same curve,
-BSFC(load) = BSFC_full · (0.8471 + 0.1529/load), which at v3.0's 30.6% load and a
-252 g/kWh full-load basis returns **340.1 g/kWh**. **The two independent
-implementations agree to 1.9%.** The gauntlet audit's third, independently coded
+BSFC(load) = BSFC_full · (0.8471 + 0.1529/load), which at the recorded 30.56% load and
+a 251.9 g/kWh full-load basis returns **339.5 g/kWh** (`opt_runs/layout.log`,
+`bsfc_eff`). **The two independent implementations agree to 2.1%.** The gauntlet audit's third, independently coded
 Willans line agreed with the module to 2.4% on a different design point. This is one
 of the better-corroborated numbers in the report.
 
-**Four things about it that are assumptions, and the report will not hide them:**
+**Five things about it that are assumptions or inconsistencies, and the report will
+not hide them:**
 
 1. **The load fraction at which 270 g/kWh is taken to hold is 0.75, and it is the most
    load-bearing unsourced number in the engine deck.** The report never says at what
@@ -461,6 +492,16 @@ of the better-corroborated numbers in the report.
    **worse** than modelled. This model is the optimistic bound.
 4. **BSFC was frozen at the mid-burn load in the mission integration.** See §7.3 — this
    is worth −5.6 h.
+5. **The load fraction the BSFC is read at was computed with a different propeller
+   efficiency from the one the mission was flown with, and this is an inconsistency in
+   the recorded design point.** `scripts/run_optimisation_layout.py` sets the mid-burn
+   shaft power with `argus7.opt.coupled.PROP_ETA = 0.84` (line 51) and then integrates
+   the mission at `prop_efficiency = 0.858` (line 57). At a consistent 0.8581 the
+   mid-burn shaft power is 3.26 kW, not 3.31 kW, the load fraction is **30.05%**, not
+   30.56%, and the effective BSFC is **341.6 g/kWh**, not 339.5 — worth **−0.9 h**
+   (151.95 → 151.02 h). Small in magnitude, but it is a constant used at a point it was
+   not evaluated for, which is the exact failure class this report exists to stop
+   repeating. Not fixed; it needs an optimiser re-run, not an edit.
 
 ### 4.4 The BSFC that the answer actually rests on
 
@@ -469,8 +510,9 @@ took **0.2519**. That is the report's own §6 language: *"BSFC is not published 
 be dyno-mapped; design assumes 270 g/kWh, target ≤250."*
 
 **252 g/kWh is the target, not a unit.** The only two engines on v1.0 §6's shortlist
-with *verified, published* BSFC — the RCV DF70LC and the Orbital HFDI-150 — are both
-**330 g/kWh**. Endurance is exactly inversely proportional to BSFC in this model
+carrying a BSFC figure at all — the RCV DF70LC (*"verified 330 g/kWh"*) and the Orbital
+HFDI-150 (*"~330 g/kWh"*) — are both **330 g/kWh**; the primary candidate, the Honda
+250-class conversion the design actually assumes, has no published figure of any kind. Endurance is exactly inversely proportional to BSFC in this model
 (BSFC enters mass flow linearly and nothing else), so:
 
 | Full-load BSFC | Effective at 30.6% load | Endurance |
@@ -489,8 +531,9 @@ dyno.
 
 A BEMT sweep over ~400 configurations, requiring **both** operating points
 simultaneously — loiter thrust *and* climb power absorption — produced the selection.
-Of 100 configurations in the first sweep, **34 satisfied both**. For the published
-v1.0 design the count was **zero**.
+Of 100 converged configurations in the first sweep, **34 met loiter thrust and the tip-Mach
+limit** (`opt_runs/prop.log`), and climb absorption was then applied to those. For the
+published v1.0 design the count that met loiter thrust at all was **zero**.
 
 Selected and carried in the design file (`opt_runs/prop_final.json`):
 
@@ -621,7 +664,7 @@ makes them pass without rewriting the reason.
 | Fuel state | Mass (kg) | x_cg (m) | CG (% MAC) | SM (% MAC) | SM with pod (% MAC) |
 |---|---|---|---|---|---|
 | Full | 312.94 | 1.4588 | 39.61 | **+5.79** | +1.32 |
-| Half | 232.64 | 1.4589 | 39.61 | +5.75 | +1.28 |
+| Half | 232.63 | 1.4589 | 39.63 | +5.76 | +1.29 |
 | Dry | 152.34 | 1.4592 | 39.69 | **+5.71** | +1.24 |
 
 **Static-margin excursion full → empty: −0.08% MAC.**
@@ -668,14 +711,56 @@ wide.** Every reading is stable; none is +5.79% exactly.
    v1.0 against 7.3% by the more elaborate Multhopp strip method: **this term is the
    pessimistic end of the published band.**
 
-Applied together (AVL wing AC + Munk pod) the answer is **+6.90% MAC**, comfortably
-inside the 5–15% gate. Applied one at a time it is +1.32% or +11.37%. **The design is
-stable on every reading available, and the width of that band is a statement about the
-method, not about the aeroplane.**
+Applied together (AVL wing AC + Munk pod) the answer is **+6.90% MAC**. Applied one at
+a time it is +1.32% or +11.37%. **The design is stable on every reading available, and
+the width of that band is a statement about the method, not about the aeroplane.**
 
 **One thing that is not in this analysis at all:** dynamic stability, control power,
 trim authority, spiral and Dutch-roll modes, aeroelastic trim, and departure
 behaviour. This is a longitudinal static balance and nothing more.
+
+### 5.5 The gate this does not pass, and the threshold that was moved
+
+Stable is not the same as compliant, and the report will not let the first stand in
+for the second.
+
+The programme's pre-registered static-margin gate is
+**8% ≤ SM ≤ 20% MAC** — `docs/superpowers/specs/2026-08-20-argus7-cad-sim-optimisation-design.md`
+line 109, and line 178 makes *"no regression on static margin validity"* a conjunctive
+adoption gate. It is the same window
+`tests/test_balance.py::test_both_designs_meet_the_programmes_own_static_margin_gate`
+holds v1.0 and v2.0 against.
+
+**The optimiser that produced v3.0 searched a 5–15% window instead.** The design file's
+own header records it: *"Static margin required in [5%, 15%] MAC at BOTH full fuel and
+dry."* Nothing in `docs/decisions/` records a ruling that moved 8–20% to 5–15%.
+
+Measured against the real gate:
+
+| Reading (from §5.4) | SM, full fuel | 8–20% MAC gate |
+|---|---|---|
+| Analytic, wing + tail — **the headline** | +5.79% | ❌ **below floor** |
+| Analytic + Munk fuselage term | +1.32% | ❌ below floor |
+| AVL, wing + tail | +11.37% | ✅ passes |
+| AVL + Munk fuselage term | +6.90% | ❌ below floor |
+
+Dry fuel state is 0.08% MAC worse on every row, so nothing is rescued there.
+
+**Three things follow, and they should be said in this order.**
+
+1. **The aeroplane is stable.** Every reading is positive; the divergence that
+   condemns v1.0 is genuinely gone. That is the substantive result of §5 and it is not
+   diminished by what follows.
+2. **The design point does not meet the programme's own stability requirement**, on the
+   convention its headline number is written in. Only one of four readings clears the
+   floor, and it is the reading that excludes the fuselage — i.e. the optimistic one.
+3. **A pre-registered threshold was moved without a ruling**, which is the specific
+   failure mode `docs/decisions/2026-08-20-gauntlet-preregistration.md` exists to
+   prevent, and which §9.3 of this report condemns in the abstract three sections
+   later. Recording it here is the minimum; re-running the search at 8–20% and
+   re-verifying against `argus7.analysis.balance` is what actually settles it. That
+   costs endurance — the constraint binds from below, so more margin means moving the
+   wing station forward and buying it with tail volume or arm.
 
 ---
 
@@ -777,8 +862,11 @@ can be priced with it.
 - **Recommended: COTS roll-wrapped 110 mm × 2.0 mm, no liner — 7.54 kg for the pair**
   (9.20 kg with fittings). The design file still specifies **Ø90 mm**, which meets the
   requirement only at **10.06 kg** (11.72 kg installed) — i.e. **the published baseline
-  carries about 3.4 h of unpaid stiffness debt**, and going to 110 mm pays it for
-  −0.24 kg at +0.00042 of drag.
+  carries about 3.0 h of unpaid stiffness debt** (`boom_construction_pack.md` §14),
+  and going to 110 mm pays it by **saving 2.52 kg installed** for +0.00042 of drag.
+  The pack's tube-only sweep, comparing exactly-sized walls rather than installed
+  builds, puts the same change at +4.62 h; both are v1.0 numbers, see the note at the
+  end of this section.
 - **An aluminium liner is the single most expensive idea in the proposal**: 5.5–16.1 kg
   = 8.3–24.2 hours of endurance, for a material that delivers 28.1 kN·m² of EI where
   carbon delivers 69.5 at equal mass and radius.
@@ -857,13 +945,15 @@ Result: **151.9510 h = 6.3313 days**, reproducing `opt_runs/layout.log` exactly.
 ### 7.2 The validation gates it passed
 
 **Gate 1 — the step integration must reproduce the closed-form Breguet solution.**
-Called with `payload_power_w = 0` and a constant BSFC — the conditions under which
-the analytic solution exists — the integrator returns 197.5053 h against the Breguet
-form's 197.5066 h: **−0.00067%** at 120 steps. At 20,000 steps the loiter integration
-has converged to within 0.0004% of its 120-step value, so the discretisation
-contributes nothing. Asserted by
-`tests/test_mission_sim.py::test_gate1_step_integration_matches_closed_form_breguet`
-at a <0.1% threshold.
+Called with `payload_power_w = 0` and a constant BSFC — the conditions under which the
+analytic solution exists — the integrator returns 197.5053 h against the Breguet form's
+197.5066 h **on the v3.0 design point**: **−0.00067%** at 120 steps. At 20,000 steps the
+integration has moved a further 0.0007%, so the discretisation contributes nothing.
+The committed test,
+`tests/test_mission_sim.py::test_gate1_step_integration_matches_closed_form_breguet`,
+runs the same gate on **v1.0's** polar at 400 steps — 142.7478 h against 142.7478 h — at
+a <0.1% threshold. The v3.0 figures above are this report's own recomputation, not the
+test's output.
 
 **Gate 2 — the same simulator must reproduce the published v1.0 endurance.** Run on
 v1.0's published polar (S 3.9, AR 22, C_D0 0.020, e 0.85, MTOW 250, fuel 101.5,
@@ -990,7 +1080,7 @@ distorts every variable that touches it.
 
 ### 9.1 The test suite
 
-**459 passed, 12 xfailed** (`.venv/bin/pytest tests/`, ~90 s), across 17 test modules
+**461 passed, 12 xfailed** (`.venv/bin/pytest tests/`, ~90 s), across 17 test modules
 covering airfoil coordinates, ISA, geometry closure, CAD wing/airframe/export/render,
 drag build-up, NeuralFoil, XFOIL driver, BEMT, engine deck, mission simulation,
 optimiser design space, balance, lift-curve anchors, and a regression-defect file.
@@ -1006,7 +1096,7 @@ programme's findings, held in executable form:
 | `test_v1_neutral_point_is_aft_of_the_cg` | v1.0 is divergent, full and dry |
 | `test_v2_neutral_point_is_aft_of_the_cg` | the retired v2.0 was too, at −8.7% → −23.5% |
 | `test_v1_cg_lies_in_the_published_window` | 38–46% MAC window missed by 189/383 mm |
-| `test_both_designs_meet_the_programmes_own_static_margin_gate` | the pre-registered 8–20% MAC gate was never evaluated on either design |
+| `test_both_designs_meet_the_programmes_own_static_margin_gate` | the pre-registered 8–20% MAC gate was never evaluated on either design — and v3.0, now evaluated against it in §5.5, **also fails it**, at +5.79% |
 | `test_report_claim_of_half_percent_cg_travel` | 76× and 30× over |
 | `test_v2_mass_budget_closes` | 13.02 kg unallocated in the retired v2.0, traced to an engine-mass credit applied twice |
 | `test_v2_static_margin_stays_inside_the_window_across_the_whole_burn` | outside at every fuel fraction |
@@ -1071,11 +1161,17 @@ What the audit found, and could not break, is as informative as what it broke:
 That audit is the direct ancestor of §4 and §5 of this report. It is also why this
 report states model limits beside numbers rather than in a footnote.
 
+**The eight gates had never been run against v3.0.** §10.4a does it. Two fail — G7 on
+the engine, and the spec's separate 8–20% MAC stability window — and Annex A's BSFC
+tripwire trips on the modelled value. *"Gates chosen after seeing the result are not
+gates"* cuts both ways, and the 5–15% window this design point was searched under is
+the same failure wearing the other face.
+
 ### 9.4 Independent cross-checks that agree
 
 | Quantity | Method A | Method B | Agreement |
 |---|---|---|---|
-| v3.0 loiter BSFC | optimiser part-load fit, 340.1 g/kWh | `argus7.prop.engine` Willans deck, 346.6 g/kWh | 1.9% |
+| v3.0 loiter BSFC | optimiser part-load fit, 339.5 g/kWh | `argus7.prop.engine` Willans deck, 346.6 g/kWh | 2.1% |
 | Step integration | 120-step midpoint | closed-form Breguet | 0.0007% |
 | v1.0 endurance | this repository, 112.977 h | independent auditor, 112.977 h | 6 sig figs |
 | v3.0 neutral point (tail term) | analytic relation | AVL with real inverted-V dihedral | 0.8% MAC (on v1.0/v2.0) |
@@ -1099,11 +1195,21 @@ three-view in this repository depicts the aircraft described here.
 
 And: **`opt_runs/layout.json` no longer contains the v3.0 design point.** It was
 overwritten by a later, deliberately unbounded run (MTOW to 600 kg, span to 20 m,
-which returned 10.05 d at 597 kg). The surviving record of the run that produced
-v3.0 is `opt_runs/layout.log`, and `scripts/run_optimisation_layout.py` has likewise
-been edited to the free-bounds variant. **The exact script and bounds that produced
-the published design point are not recoverable from the repository.** The design
-variables are, and everything in this report is recomputed from them.
+which returned 10.05 d at 597 kg). The surviving record of the run that produced v3.0
+is `opt_runs/layout.log`. `scripts/run_optimisation_layout.py` has been rewritten more
+than once since — at the time of writing it carries an 8–20% MAC static-margin gate
+with a +4.7% MAC search bias, MTOW ≤ 320 kg and span ≤ 11.85 m, and writes to a
+different output file — so **the exact script and bounds that produced the published
+design point are not recoverable from the repository.** The design variables are, and
+everything in this report is recomputed from them. Anyone reading this section should
+check the script's current state rather than trusting this paragraph's description of
+it.
+
+**Corollary, and it is not a small one:** because the producing script is gone, the
+statement *"the optimiser searched a 5–15% static-margin window"* rests on
+`design/argus7_v3.yaml`'s own header comment and on `opt_runs/layout.log`'s recorded
+`sm_full = 0.105`, not on the code that was run. Both are consistent with it; neither
+is the code.
 
 ---
 
@@ -1187,6 +1293,36 @@ SORA terms.
 **What settles it:** a SORA pre-application, which v1.0 Annex A's rebuilt plan already
 puts in Phase 0 month 1 precisely because early bad news is cheap.
 
+### 10.4a Does v3.0 pass its own pre-registered gates? — three do not, and one is structural
+
+Running the eight gauntlet gates (`2026-08-20-gauntlet-preregistration.md`) plus the
+spec's stability window against this design point, which no document in the repository
+had done:
+
+| Gate | v3.0 | Verdict |
+|---|---|---|
+| G1 endurance ≥ +5% on the champion | 151.95 h vs 75.90 h honest / 112.98 h published | ✅ |
+| G2 fuel ≤ wing tank capacity | 160.60 ≤ 168.01 kg | ✅ (4.4%, thinner than the model's own uncertainty — §10.2) |
+| G3 span ≤ 12 m | 11.266 m | ✅ |
+| G4 mass closure | −0.01 kg | ✅ |
+| G5 AR^1.5 wing-mass scaling honoured | yes | ✅ |
+| G6 regulatory band declared | 312.93 kg, declared in §10.4 | ✅ |
+| G7 buildability: AR ≤ 25, span ≤ 12 m, **engine matched to a real §6 unit** | AR 21.4 ✅, span ✅, **engine is a 252 g/kWh target** | ❌ **FAIL** |
+| G8 stall margin | C_L 1.2098 | ✅ |
+| Spec line 109: 8% ≤ SM ≤ 20% MAC | **+5.79% / +5.71%** | ❌ **FAIL** (§5.5) |
+| Annex A tripwire #3: loiter BSFC ≤ 300 g/kWh | **339.5 g/kWh modelled** | ❌ **trips** (§10.1) |
+
+The pre-registration's decision rule is conjunctive — *"any of G2–G8 fails → do not
+adopt"*. **On its own rule, v3.0 is not adoptable either.** The honest statement is
+narrower than "v3.0 is the design": v3.0 is the **best design point this programme has
+produced and verified**, and it fails two gates and one tripwire, all three for reasons
+that are about the engine and about a threshold that was moved, not about the airframe.
+
+**What settles it:** re-run the search at 8–20% MAC (the point exists — the constraint
+binds from below and is bought with wing station, tail volume and tail arm, all three
+of which are already optimiser variables), and put an engine on a dyno. Neither is an
+analysis task.
+
 ### 10.5 The model limits that bound every number in this report
 
 Stated once, in one place, because they bound everything above.
@@ -1234,8 +1370,10 @@ repository:
 - **Generate v3.0 CAD and three-views.** The pipeline exists and is regression-tested.
 - **Ø50 × 150 mm spigot instead of two M6 screws** at the tail panel root: 0 kg, 0
   drag, bearing margin ×174.
-- **Boom diameter 90 → 110 mm**: +4.6 h net, and it pays a stiffness debt the published
-  baseline never paid.
+- **Boom diameter 90 → 110 mm**: +3.0 h net as an installed build (+4.6 h comparing
+  exactly-sized tube walls), and it pays a stiffness debt the published baseline never
+  paid. Both figures are `boom_construction_pack.md`'s, computed on v1.0's 3.646 m boom
+  and its 1.5 h/kg exchange rate; v3.0's boom is 4.064 m and neither has been re-run.
 - **Specify a 125 mm/side raked wing tip before the wing plug is cut**: +2.1 h for
   +0.54 kg, CG-neutral. Specified *after* tooling it needs its own mould pair —
   €800–1,500 and 30–50 h instead of €0. **88% of that credit is aspect ratio and area,
@@ -1266,7 +1404,9 @@ repository:
 | Part-load BSFC 339.5 / 346.6 g/kWh | `argus7/opt/coupled.py`, `argus7/prop/engine.py` | `bsfc_at_load`, `Engine.from_design(d).bsfc_g_per_kwh(...)` |
 | Propeller 1.04 m / 2 / 1900 / 0.95 / η 0.858 | `opt_runs/prop_final.json` | `scripts/prop_refine.py` — **note: run against v2.0** |
 | Climb power 10.68 kW | `argus7/opt/coupled.py` | `climb_power_required_w(...)` |
-| Sensitivity anchors +0.358 / +0.377 / +0.198 d | `docs/decisions/2026-08-20-gauntlet-audit.md` §1 | re-derived here on the v1.0 published polar; both agree |
+| Sensitivity anchors +0.358 / +0.377 / +0.198 d | `docs/decisions/2026-08-20-gauntlet-audit.md` §1 | re-derived here on the v1.0 published polar at 120 steps: +8.588 h, +9.038 h, +4.742 h; both agree |
+| Static-margin gate 8–20% MAC | `docs/superpowers/specs/2026-08-20-argus7-cad-sim-optimisation-design.md` line 109 | read directly; line 178 makes it conjunctive |
+| v3.0 propeller re-run (58.1 N at 1,900 rpm; 2,032 rpm needed; 99.3% climb absorption at 2,660 rpm) | `argus7/prop/bemt.py` | `run_bemt(constant_pitch_blade(1.04, 0.988, blades=2), rpm, V, rho)` at v3.0's three fuel states |
 | Mutation score 12/13 | `opt_runs/mutation.json` | `scripts/mutation_test.py` (**not** `mutation.log`, which is stale) |
 | Materials, boom, empennage and configuration findings | `research/*.md` | each carries its own source tags and reproducibility appendix |
 

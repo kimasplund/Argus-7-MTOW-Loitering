@@ -1,6 +1,12 @@
 # ARGUS-7 v4.0 - optimised against the SPEC's static-margin gate (8-20% MAC).
 # v3.0 used a 5-15% window, a pre-registered threshold moved without noticing.
 # Verify every stability number with argus7.analysis.balance, not the search model.
+# PROPELLER re-solved 2026-08-21 at v4.0's OWN operating point. The earlier
+# entry (1.04 m at 1900 rpm, 3.947:1) was carried over from v2.0 and produced
+# only 61.4 N against the 76.0 N this aircraft needs -- a 19% thrust shortfall.
+# scripts/prop_design_sweep.py and prop_refine.py still load argus7_v2.yaml and
+# hard-code v1.0's boom station; they must be parameterised before reuse.
+
 name: ARGUS-7
 variant: v4.0
 mission:
@@ -50,12 +56,12 @@ tail:
 propulsion:
   engine_displacement_cc: 250.0
   power_max_kw: 10.802
-  reduction_ratio: 3.947
+  reduction_ratio: 3.659
   prop_diameter_m: 1.04
-  prop_rpm: 1900.0
+  prop_rpm: 2050.0
   prop_blades: 2
   prop_pitch_ratio: 0.95
-  prop_eta_loiter: 0.8581
+  prop_eta_loiter: 0.8512
 masses:
   airframe: 69.33
   powertrain: 15.89

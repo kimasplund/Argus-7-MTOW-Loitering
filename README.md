@@ -8,6 +8,26 @@ and airbag for reuse.
 no CFD, no structural test. 459 tests pass; 12 xfails document real defects in the
 published design rather than broken tests.
 
+## The aircraft
+
+![ARGUS-7 v4.0 isometric](figures/final/argus7_iso.png)
+
+| | |
+|---|---|
+| ![top](figures/final/argus7_top.png) | ![front](figures/final/argus7_front.png) |
+
+**v4.0** — 6.99 d loiter, 320 kg MTOW, 12.0 m span, 5.80 m² wing at AR 24.8,
+11 kW engine driving a 1.04 m two-blade propeller at 2050 rpm through 3.66:1.
+Static margin +12.78% full / +13.72% dry.
+
+The wing sits at 41% of fuselage length, not the 22% the published design used.
+That single change is what makes it balance, and it also puts the tanks at the CG,
+so CG travel across the whole fuel burn is +0.94% MAC.
+
+Renders regenerate from `design/argus7_v4.yaml` via `scripts/build_model.py`.
+**These depict a paper design that has never been built or flown**, and
+`docs/argus7_v3_premortem.md` lists what would have to be true for it to fly.
+
 ## Start here
 
 - **[docs/decisions/](docs/decisions/)** — what was found, decided and corrected,
