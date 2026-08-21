@@ -1,0 +1,167 @@
+ a KNOT was generated in node            2
+
+ a KNOT was generated in node            3
+
+ a KNOT was generated in node            4
+
+ a KNOT was generated in node            5
+
+ a KNOT was generated in node            6
+
+ a KNOT was generated in node            7
+
+ a KNOT was generated in node            8
+
+ a KNOT was generated in node            9
+
+ a KNOT was generated in node           10
+
+ a KNOT was generated in node           11
+
+ a KNOT was generated in node           12
+
+ a KNOT was generated in node           13
+
+ a KNOT was generated in node           14
+
+ a KNOT was generated in node           15
+
+ a KNOT was generated in node           16
+
+ a KNOT was generated in node           17
+
+ a KNOT was generated in node           18
+
+ a KNOT was generated in node           19
+
+ a KNOT was generated in node           20
+
+ ELEMENT            1 with label "B31    R" and with nodes:
+          1          2
+  is expanded into a "C3D8I BR" element with topology:
+         22         30         31         23         25         33         32         24          0          0
+          0
+
+ ELEMENT            2 with label "B31    R" and with nodes:
+          2          3
+  is expanded into a "C3D8I BR" element with topology:
+         38         64         65         39         41         67         66         40          0          0
+          0
+
+ ELEMENT            3 with label "B31    R" and with nodes:
+          3          4
+  is expanded into a "C3D8I BR" element with topology:
+         72         98         99         73         75        101        100         74          0          0
+          0
+
+ ELEMENT            4 with label "B31    R" and with nodes:
+          4          5
+  is expanded into a "C3D8I BR" element with topology:
+        106        132        133        107        109        135        134        108          0          0
+          0
+
+ ELEMENT            5 with label "B31    R" and with nodes:
+          5          6
+  is expanded into a "C3D8I BR" element with topology:
+        140        166        167        141        143        169        168        142          0          0
+          0
+
+ ELEMENT            6 with label "B31    R" and with nodes:
+          6          7
+  is expanded into a "C3D8I BR" element with topology:
+        174        200        201        175        177        203        202        176          0          0
+          0
+
+ ELEMENT            7 with label "B31    R" and with nodes:
+          7          8
+  is expanded into a "C3D8I BR" element with topology:
+        208        234        235        209        211        237        236        210          0          0
+          0
+
+ ELEMENT            8 with label "B31    R" and with nodes:
+          8          9
+  is expanded into a "C3D8I BR" element with topology:
+        242        268        269        243        245        271        270        244          0          0
+          0
+
+ ELEMENT            9 with label "B31    R" and with nodes:
+          9         10
+  is expanded into a "C3D8I BR" element with topology:
+        276        302        303        277        279        305        304        278          0          0
+          0
+
+ ELEMENT           10 with label "B31    R" and with nodes:
+         10         11
+  is expanded into a "C3D8I BR" element with topology:
+        310        336        337        311        313        339        338        312          0          0
+          0
+
+ ELEMENT           11 with label "B31    R" and with nodes:
+         11         12
+  is expanded into a "C3D8I BR" element with topology:
+        344        370        371        345        347        373        372        346          0          0
+          0
+
+ ELEMENT           12 with label "B31    R" and with nodes:
+         12         13
+  is expanded into a "C3D8I BR" element with topology:
+        378        404        405        379        381        407        406        380          0          0
+          0
+
+ ELEMENT           13 with label "B31    R" and with nodes:
+         13         14
+  is expanded into a "C3D8I BR" element with topology:
+        412        438        439        413        415        441        440        414          0          0
+          0
+
+ ELEMENT           14 with label "B31    R" and with nodes:
+         14         15
+  is expanded into a "C3D8I BR" element with topology:
+        446        472        473        447        449        475        474        448          0          0
+          0
+
+ ELEMENT           15 with label "B31    R" and with nodes:
+         15         16
+  is expanded into a "C3D8I BR" element with topology:
+        480        506        507        481        483        509        508        482          0          0
+          0
+
+ ELEMENT           16 with label "B31    R" and with nodes:
+         16         17
+  is expanded into a "C3D8I BR" element with topology:
+        514        540        541        515        517        543        542        516          0          0
+          0
+
+ ELEMENT           17 with label "B31    R" and with nodes:
+         17         18
+  is expanded into a "C3D8I BR" element with topology:
+        548        574        575        549        551        577        576        550          0          0
+          0
+
+ ELEMENT           18 with label "B31    R" and with nodes:
+         18         19
+  is expanded into a "C3D8I BR" element with topology:
+        582        608        609        583        585        611        610        584          0          0
+          0
+
+ ELEMENT           19 with label "B31    R" and with nodes:
+         19         20
+  is expanded into a "C3D8I BR" element with topology:
+        616        642        643        617        619        645        644        618          0          0
+          0
+
+ ELEMENT           20 with label "B31    R" and with nodes:
+         20         21
+  is expanded into a "C3D8I BR" element with topology:
+        650        676        677        651        653        679        678        652          0          0
+          0
+
+ a MEAN ROTATION MPC was generated in node            1
+                 about the axis (   1.0000000000000000      ,   0.0000000000000000      ,   0.0000000000000000      )
+
+ a MEAN ROTATION MPC was generated in node            1
+                 about the axis (   0.0000000000000000      ,   1.0000000000000000      ,   0.0000000000000000      )
+
+ a MEAN ROTATION MPC was generated in node            1
+                 about the axis (   0.0000000000000000      ,   0.0000000000000000      ,   1.0000000000000000      )
+
