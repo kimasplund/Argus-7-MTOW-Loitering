@@ -20,7 +20,10 @@ published design rather than broken tests.
 
 **v5.0** — 6.97 d loiter, 320 kg MTOW, 11.86 m span, 5.72 m² wing at AR 24.6,
 10.85 kW engine driving a 1.04 m two-blade propeller at 2050 rpm through 3.66:1.
-Static margin +12.72% full / +13.68% dry. **Passes all nine adoption gates.**
+Static margin +12.72% full / +13.68% dry. **Passes 8 of 9 adoption gates** — G7
+(buildability) fails because its 251 g/kWh full-load BSFC is a design *target*,
+not a verified figure for any engine on the report's shortlist; the nearest
+verified units are 330 g/kWh.
 
 The wing sits at 41% of fuselage length, not the 22% the published design used.
 That single change is what makes it balance, and it also puts the tanks at the CG,
@@ -37,8 +40,8 @@ range flies at minimum *drag*. You do not get both from one flight.
 
 | | Loiter mission | Ferry mission |
 |---|---|---|
-| **Endurance** | **167 h (6.97 d)** | 131.8 h |
-| **Range** | — | **17,659 km** |
+| **Endurance** | **166.6 h (6.94 d)** | 131.8 h |
+| **Range** | — | 17,659 km **(not currently flyable — see below)** |
 | Speed | ~102 km/h TAS | 134 km/h TAS |
 | Best-range band | — | 124–146 km/h (within 1%) |
 | L/D max | 30.4 at C_L 1.028 | |
@@ -58,10 +61,18 @@ aircraft of the class. It is *not* the discredited 16,000 km claim from the
 originating session revived — that was 200 kg on BSFC 230 g/kWh with no stall
 margin; this is 320 kg on ~310 g/kWh part-load with the stall margin active.
 
-**Caveats that matter:** still air (a 30 km/h headwind costs 22% of range); no
-reserve, climb, descent or diversion, fuel burned to dry tanks; and 102 km/h does
-not close at MTOW — the loiter speed only becomes available once fuel has burned
-off. Regenerate with `scripts/range_analysis.py`.
+**The range figure is not flyable with the propeller as specified.** Reaching
+134 km/h at MTOW needs 2,500 prop rpm, i.e. 9,148 crank rpm through the 3.66:1
+reduction — **122% of the assumed 7,500 rpm rating**. The fixed-pitch disc was
+selected for the loiter point and tops out near 122 km/h at MTOW, leaving much of
+the installed power unusable in cruise. The loiter mission is unaffected. This is
+the case where the earlier "variable pitch buys nothing" conclusion stops holding:
+it was true for loiter, and is false for the ferry mission.
+
+**Other caveats:** still air (a 30 km/h headwind costs 22% of range); no reserve,
+climb, descent or diversion, fuel burned to dry tanks; and 102 km/h does not close
+at MTOW — the loiter speed only becomes available once fuel has burned off.
+Regenerate with `scripts/range_analysis.py`.
 
 ![payload-range](figures/current/payload_range.png)
 
@@ -81,10 +92,10 @@ These are not variants of one aircraft; they are successive corrections.
 | File | Endurance | Status |
 |---|---|---|
 | `argus7_v1.yaml` | 4.70 d published, **3.16 d** measured | **Published, defective.** Statically unstable (−44% → −82% MAC), wing cannot hold its fuel, propeller cannot absorb its engine |
-| `argus7_v2.yaml` | 5.02 d | **RETIRED.** Unstable (−8.7% → −23.5%), mass budget 13 kg short |
+| `argus7_v2.yaml` | 4.88 d | **RETIRED.** Unstable (−8.7% → −23.5%), mass budget 13 kg short |
 | `argus7_v3.yaml` | 6.33 d | **Superseded.** Balances, but at +5.79% MAC — below the spec's own 8% floor |
 | `argus7_v4.yaml` | 6.99 d | **Superseded.** Balances, but span 12.001 m against a 12.0 m limit — zero buildable margin, fails gate G3 |
-| `argus7_v5.yaml` | **6.97 d** | **Current. 9/9 adoption gates pass.** Span 11.856 m (144 mm margin), SM +12.72% / +13.68%, mass closes exactly, propeller solved at its own condition |
+| `argus7_v5.yaml` | **6.94 d** | **Current. 8/9 gates** — G7 fails on an unverified engine BSFC. Span 11.856 m (144 mm margin), SM +12.72% / +13.68%, mass closes exactly |
 
 Every design point is machine-checked: geometry closure, provenance tags on every
 parameter, and a static-margin verification against `argus7/analysis/balance.py`.

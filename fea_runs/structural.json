@@ -1,8 +1,8 @@
 {
   "static": {
-    "tip_mm": 5939.99,
-    "tip_pct_semispan": 100.20435015854007,
-    "limit_tip_pct": 66.80290010569337,
+    "tip_mm": 383.238,
+    "tip_pct_semispan": 6.4650133663623315,
+    "limit_tip_pct": 4.310008910908221,
     "analytic_mm": 1283.4213432887016,
     "root_stress_MPa": 600.0,
     "allowable_MPa": 600.0,

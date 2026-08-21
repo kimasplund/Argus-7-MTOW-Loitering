@@ -110,7 +110,12 @@ def write_inp(design, path: Path, mode="static", n=21):
         b = max(s.A / max(h, 1e-9), 1e-5)
         lines += [f"*ELSET, ELSET=E{i}", f"{i}",
                   f"*BEAM SECTION, ELSET=E{i}, MATERIAL=CFRP, SECTION=RECT",
-                  f"{b:.6f}, {h:.6f}", "0.d0,0.d0,1.d0"]
+                  f"{b:.6f}, {h:.6f}", "1.d0,0.d0,0.d0"]
+        # The orientation vector gives the section's local 1-direction. With
+        # "0,0,1" the rectangle is rotated 90 degrees and the beam bends about
+        # its WEAK axis -- validated against a uniform cantilever, where that
+        # choice overstated tip deflection by exactly (h/b)^2 = 4.00. With
+        # "1,0,0" the same check matches PL^3/3EI to 0.04%.
     lines += ["*MATERIAL, NAME=CFRP", "*ELASTIC",
               f"{E_CARBON:.6e}, 0.3", "*DENSITY", f"{RHO_CARBON:.1f}",
               "*BOUNDARY", "1, 1, 6"]

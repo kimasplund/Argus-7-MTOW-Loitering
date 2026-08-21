@@ -1,0 +1,129 @@
+ ELEMENT            1 with label "B31    R" and with nodes:
+          1          2
+  is expanded into a "C3D8I BR" element with topology:
+         22         30         31         23         25         33         32         24          0          0
+          0
+
+ ELEMENT            2 with label "B31    R" and with nodes:
+          2          3
+  is expanded into a "C3D8I BR" element with topology:
+         30         38         39         31         33         41         40         32          0          0
+          0
+
+ ELEMENT            3 with label "B31    R" and with nodes:
+          3          4
+  is expanded into a "C3D8I BR" element with topology:
+         38         46         47         39         41         49         48         40          0          0
+          0
+
+ ELEMENT            4 with label "B31    R" and with nodes:
+          4          5
+  is expanded into a "C3D8I BR" element with topology:
+         46         54         55         47         49         57         56         48          0          0
+          0
+
+ ELEMENT            5 with label "B31    R" and with nodes:
+          5          6
+  is expanded into a "C3D8I BR" element with topology:
+         54         62         63         55         57         65         64         56          0          0
+          0
+
+ ELEMENT            6 with label "B31    R" and with nodes:
+          6          7
+  is expanded into a "C3D8I BR" element with topology:
+         62         70         71         63         65         73         72         64          0          0
+          0
+
+ ELEMENT            7 with label "B31    R" and with nodes:
+          7          8
+  is expanded into a "C3D8I BR" element with topology:
+         70         78         79         71         73         81         80         72          0          0
+          0
+
+ ELEMENT            8 with label "B31    R" and with nodes:
+          8          9
+  is expanded into a "C3D8I BR" element with topology:
+         78         86         87         79         81         89         88         80          0          0
+          0
+
+ ELEMENT            9 with label "B31    R" and with nodes:
+          9         10
+  is expanded into a "C3D8I BR" element with topology:
+         86         94         95         87         89         97         96         88          0          0
+          0
+
+ ELEMENT           10 with label "B31    R" and with nodes:
+         10         11
+  is expanded into a "C3D8I BR" element with topology:
+         94        102        103         95         97        105        104         96          0          0
+          0
+
+ ELEMENT           11 with label "B31    R" and with nodes:
+         11         12
+  is expanded into a "C3D8I BR" element with topology:
+        102        110        111        103        105        113        112        104          0          0
+          0
+
+ ELEMENT           12 with label "B31    R" and with nodes:
+         12         13
+  is expanded into a "C3D8I BR" element with topology:
+        110        118        119        111        113        121        120        112          0          0
+          0
+
+ ELEMENT           13 with label "B31    R" and with nodes:
+         13         14
+  is expanded into a "C3D8I BR" element with topology:
+        118        126        127        119        121        129        128        120          0          0
+          0
+
+ ELEMENT           14 with label "B31    R" and with nodes:
+         14         15
+  is expanded into a "C3D8I BR" element with topology:
+        126        134        135        127        129        137        136        128          0          0
+          0
+
+ ELEMENT           15 with label "B31    R" and with nodes:
+         15         16
+  is expanded into a "C3D8I BR" element with topology:
+        134        142        143        135        137        145        144        136          0          0
+          0
+
+ ELEMENT           16 with label "B31    R" and with nodes:
+         16         17
+  is expanded into a "C3D8I BR" element with topology:
+        142        150        151        143        145        153        152        144          0          0
+          0
+
+ ELEMENT           17 with label "B31    R" and with nodes:
+         17         18
+  is expanded into a "C3D8I BR" element with topology:
+        150        158        159        151        153        161        160        152          0          0
+          0
+
+ ELEMENT           18 with label "B31    R" and with nodes:
+         18         19
+  is expanded into a "C3D8I BR" element with topology:
+        158        166        167        159        161        169        168        160          0          0
+          0
+
+ ELEMENT           19 with label "B31    R" and with nodes:
+         19         20
+  is expanded into a "C3D8I BR" element with topology:
+        166        174        175        167        169        177        176        168          0          0
+          0
+
+ ELEMENT           20 with label "B31    R" and with nodes:
+         20         21
+  is expanded into a "C3D8I BR" element with topology:
+        174        182        183        175        177        185        184        176          0          0
+          0
+
+ a MEAN ROTATION MPC was generated in node            1
+                 about the axis (   1.0000000000000000      ,   0.0000000000000000      ,   0.0000000000000000      )
+
+ a MEAN ROTATION MPC was generated in node            1
+                 about the axis (   0.0000000000000000      ,   1.0000000000000000      ,   0.0000000000000000      )
+
+ a MEAN ROTATION MPC was generated in node            1
+                 about the axis (   0.0000000000000000      ,   0.0000000000000000      ,   1.0000000000000000      )
+
