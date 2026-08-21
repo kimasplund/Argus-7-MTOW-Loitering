@@ -10,21 +10,21 @@ published design rather than broken tests.
 
 ## The aircraft
 
-![ARGUS-7 v4.0 isometric](figures/final/argus7_iso.png)
+![ARGUS-7 v5.0 isometric](figures/final/argus7_iso.png)
 
 | | |
 |---|---|
 | ![top](figures/final/argus7_top.png) | ![front](figures/final/argus7_front.png) |
 
-**v4.0** — 6.99 d loiter, 320 kg MTOW, 12.0 m span, 5.80 m² wing at AR 24.8,
-11 kW engine driving a 1.04 m two-blade propeller at 2050 rpm through 3.66:1.
-Static margin +12.78% full / +13.72% dry.
+**v5.0** — 6.97 d loiter, 320 kg MTOW, 11.86 m span, 5.72 m² wing at AR 24.6,
+10.85 kW engine driving a 1.04 m two-blade propeller at 2050 rpm through 3.66:1.
+Static margin +12.72% full / +13.68% dry. **Passes all nine adoption gates.**
 
 The wing sits at 41% of fuselage length, not the 22% the published design used.
 That single change is what makes it balance, and it also puts the tanks at the CG,
 so CG travel across the whole fuel burn is +0.94% MAC.
 
-Renders regenerate from `design/argus7_v4.yaml` via `scripts/build_model.py`.
+Renders regenerate from `design/argus7_v5.yaml` via `scripts/build_model.py`.
 **These depict a paper design that has never been built or flown**, and
 `docs/argus7_v3_premortem.md` lists what would have to be true for it to fly.
 
@@ -46,7 +46,8 @@ These are not variants of one aircraft; they are successive corrections.
 | `argus7_v1.yaml` | 4.70 d published, **3.16 d** measured | **Published, defective.** Statically unstable (−44% → −82% MAC), wing cannot hold its fuel, propeller cannot absorb its engine |
 | `argus7_v2.yaml` | 5.02 d | **RETIRED.** Unstable (−8.7% → −23.5%), mass budget 13 kg short |
 | `argus7_v3.yaml` | 6.33 d | **Superseded.** Balances, but at +5.79% MAC — below the spec's own 8% floor |
-| `argus7_v4.yaml` | **6.99 d** | Current. Balances at **+12.78% / +13.72% MAC**, mass closes exactly. Pending a re-run for span margin |
+| `argus7_v4.yaml` | 6.99 d | **Superseded.** Balances, but span 12.001 m against a 12.0 m limit — zero buildable margin, fails gate G3 |
+| `argus7_v5.yaml` | **6.97 d** | **Current. 9/9 adoption gates pass.** Span 11.856 m (144 mm margin), SM +12.72% / +13.68%, mass closes exactly, propeller solved at its own condition |
 
 Every design point is machine-checked: geometry closure, provenance tags on every
 parameter, and a static-margin verification against `argus7/analysis/balance.py`.
