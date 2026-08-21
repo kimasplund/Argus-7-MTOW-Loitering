@@ -1,3 +1,21 @@
+# ============================ SUPERSEDED ============================
+# RETIRED 2026-08-21. Do not use. Kept only as the record of an
+# intermediate optimiser output and the defects it carried.
+#
+# TWO MEASURED DEFECTS:
+#  1. Statically UNSTABLE: -8.66% MAC at full fuel, -23.52% dry, against a
+#     5-15% requirement. It was adopted against a stability gate this
+#     programme had pre-registered and then never evaluated, because nothing
+#     in the codebase could evaluate it at the time.
+#  2. Mass budget does NOT close: the lines sum to 235.34 kg against a stated
+#     MTOW of 248.36 -- 13.02 kg, 5.2% of gross, unallocated. Cause: the
+#     optimiser applied the engine-mass credit twice, once into `airframe`
+#     and once into `powertrain`. The missing mass belongs aft, so allocating
+#     it makes the instability WORSE, not better.
+#
+# SUPERSEDED BY design/argus7_v3.yaml, which balances (+5.79% / +5.71% MAC),
+# closes to -0.01 kg, and was produced by an optimiser that owned the layout.
+# ====================================================================
 # ARGUS-7 v2.0 - OPTIMISED, MTOW-CONSTRAINED DESIGN POINT
 #
 # Produced 2026-08-21 by argus7/opt/ under the honest model: part-load BSFC,
