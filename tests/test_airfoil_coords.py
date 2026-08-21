@@ -247,3 +247,188 @@ def test_no_committed_dat_is_unreachable_by_the_loader():
         f"{dead} can never be read -- _section_coords sends every NACA* name "
         "to the naca4() generator. Delete the file or change the routing; do "
         "not leave two sources for one section.")
+
+
+# ============================================================================
+# MUTATION SURVIVOR 2: the twist transform can be corrupted undetected.
+#
+# scripts/mutation_test.py flips the sign in scale_airfoil's xr line:
+#     xr = xc*cos(t) + zc*sin(t)   ->   xr = xc*cos(t) - zc*sin(t)
+# leaving zr = -xc*sin(t) + zc*cos(t) alone. The result is no longer a
+# rotation. Its matrix is [[c, -s], [-s, c]], whose determinant is
+# c^2 - s^2 = cos(2t), not 1 -- a SHEAR that squashes the section toward the
+# line z = x by a factor cos(2*twist).
+#
+# Every existing test survived it, including test_negative_twist_produces_washout
+# directly above: for the closed-TE NACA sections used there the TE sits at
+# zc = 0, so the two conventions agree on the TE point exactly, and washout
+# direction is all those tests look at. The damage is to everything BETWEEN the
+# LE and the TE -- the section is silently thinned, which is what a spar depth,
+# a fuel volume and a loft all read.
+#
+# The invariant that separates a rotation from a shear is AREA. An orthogonal
+# transform preserves enclosed area exactly; a shear multiplies it by |det|.
+# Measured here by shoelace integration of the transformed coordinates.
+# ============================================================================
+
+def _enclosed_area_xz(pts: np.ndarray) -> float:
+    """Shoelace area of a closed section in the (x, z) plane.
+
+    Works on the raw Selig loop (TE -> upper -> LE -> lower -> TE): np.roll
+    closes the polygon, and the duplicated TE point contributes a zero-area
+    segment. Sign depends on traversal direction, hence abs().
+    """
+    x, z = pts[:, 0], pts[:, 2]
+    return 0.5 * abs(float(np.sum(x * np.roll(z, -1) - np.roll(x, -1) * z)))
+
+
+_TWISTS_DEG = [0.0, -3.0, -6.0, -10.0]      # -3 is the v1 tip twist; -10 brackets it
+
+
+@pytest.mark.parametrize("section", ["naca0012", "fx63137"])
+@pytest.mark.parametrize("twist_deg", _TWISTS_DEG)
+def test_twist_preserves_enclosed_section_area(section, twist_deg):
+    """A rotation is area-preserving. The shear mutant is not.
+
+    Shortfalls the mutant produces (|det| = cos(2t) - 1): 0.55% at -3 deg,
+    2.19% at -6 deg, 6.03% at -10 deg. The 1e-9 relative tolerance is float
+    noise, roughly six orders of magnitude below the smallest of those.
+    """
+    c = naca4("0012") if section == "naca0012" else load_airfoil("fx63137")
+    chord = 0.5807                # arbitrary scale factor, not asserted geometry
+    untwisted = _enclosed_area_xz(scale_airfoil(c, chord, 0.0, (0.0, 0.0, 0.0)))
+    twisted = _enclosed_area_xz(
+        scale_airfoil(c, chord, np.deg2rad(twist_deg), (1.2, 0.62, 0.008)))
+    assert twisted == pytest.approx(untwisted, rel=1e-9), (
+        f"twist of {twist_deg} deg changed the enclosed area by "
+        f"{100 * (twisted / untwisted - 1):+.3f}% -- the transform is not a "
+        f"rotation")
+
+
+@pytest.mark.parametrize("twist_deg", _TWISTS_DEG)
+def test_twist_scales_area_with_chord_squared_only(twist_deg):
+    """Area must go as chord^2 for any twist. Pins the scaling and the
+    rotation together, so a mutant cannot trade one against the other."""
+    c = load_airfoil("fx63137")
+    a1 = _enclosed_area_xz(scale_airfoil(c, 1.0, np.deg2rad(twist_deg), (0.0, 0.0, 0.0)))
+    a2 = _enclosed_area_xz(scale_airfoil(c, 2.0, np.deg2rad(twist_deg), (0.0, 0.0, 0.0)))
+    assert a2 == pytest.approx(4.0 * a1, rel=1e-9)
+
+
+@pytest.mark.parametrize("twist_deg", _TWISTS_DEG)
+def test_twist_pivots_exactly_about_the_leading_edge(twist_deg):
+    """The LE is the pivot, so it must land exactly on le_pos regardless of
+    twist -- not merely 'unchanged between two twists' as the older test
+    checks."""
+    c = load_airfoil("fx63137")
+    le_pos = (1.234, 0.62, 0.008)
+    out = scale_airfoil(c, 0.5807, np.deg2rad(twist_deg), le_pos)
+    le = out[int(np.argmin(c[:, 0]))]
+    assert le == pytest.approx(np.array(le_pos), abs=1e-12)
+
+
+@pytest.mark.parametrize("twist_deg", _TWISTS_DEG)
+def test_twist_preserves_chord_length(twist_deg):
+    """LE-to-TE distance is a rigid-body invariant: it must equal the chord
+    exactly, for every twist."""
+    c = load_airfoil("fx63137")
+    chord = 0.5807
+    out = scale_airfoil(c, chord, np.deg2rad(twist_deg), (1.2, 0.62, 0.008))
+    le = out[int(np.argmin(c[:, 0]))]
+    te = out[int(np.argmax(c[:, 0]))]
+    length = float(np.hypot(te[0] - le[0], te[2] - le[2]))
+    assert length == pytest.approx(chord, rel=1e-12)
+
+
+def test_twist_preserves_every_pairwise_distance():
+    """The strongest statement of the same invariant, and the one that does not
+    depend on picking the right two points: an orthogonal transform is an
+    isometry, so the full distance matrix of the section is unchanged. A shear
+    with |det| = 0.9945 cannot satisfy this."""
+    c = load_airfoil("fx63137")
+    a = scale_airfoil(c, 0.5807, 0.0, (0.0, 0.0, 0.0))[:, [0, 2]]
+    b = scale_airfoil(c, 0.5807, np.deg2rad(-6.0), (0.0, 0.0, 0.0))[:, [0, 2]]
+    da = np.linalg.norm(a[:, None, :] - a[None, :, :], axis=-1)
+    db = np.linalg.norm(b[:, None, :] - b[None, :, :], axis=-1)
+    assert np.max(np.abs(da - db)) < 1e-12
+
+
+# ============================================================================
+# ADVERSARIAL REVIEW: the survivor-2 tests above are ALL RELATIVE INVARIANTS.
+#
+# Every one of them compares the transform against itself -- twisted area
+# against untwisted area, chord 2.0 against chord 1.0, distance matrix against
+# distance matrix. That is exactly the right shape of test for distinguishing a
+# rotation from a shear, and it does kill the mutant. But it leaves the class of
+# defect SURVIVOR 2 was ABOUT -- silent thinning of the section -- wide open in
+# its simplest form. Injecting
+#
+#     xc, zc = coords[:, 0] * chord, coords[:, 1] * chord * 0.98
+#
+# (a section 2% thinner, which is four times the damage the -3 deg shear does)
+# passes all 125 tests in test_airfoil_coords, test_cad_airframe, test_cad_wing,
+# test_cad_export, test_geometry_closure and test_opt_design_space. Measured,
+# not argued. The reason is that a uniform z-scale commutes with the rotation,
+# so it cancels out of every ratio: areas scale together, chord^2 scaling is
+# untouched, the LE is still the pivot, the TE still sits at z = 0 so the chord
+# length is unchanged, and the whole section is still an isometric copy of the
+# (thinned) section at zero twist.
+#
+# The missing statement is an ABSOLUTE one: what the output IS, not only what
+# it preserves. h_spar, the fuel volume and the loft all read the section's
+# actual thickness, so that is the statement that has to exist.
+# ============================================================================
+
+def _unit_shoelace(coords: np.ndarray) -> float:
+    """Enclosed area of the normalised section, in its own (x, y) plane."""
+    x, y = coords[:, 0], coords[:, 1]
+    return 0.5 * abs(float(np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y)))
+
+
+@pytest.mark.parametrize("section", ["naca0012", "fx63137"])
+def test_untwisted_section_is_exactly_the_scaled_translated_coordinates(section):
+    """At zero twist the transform is pure scale-and-translate, so the output
+    is fully determined and can be written down: x = x_c*chord + x0,
+    y = y0 throughout, z = z_c*chord + z0. Nothing here is a ratio."""
+    c = naca4("0012") if section == "naca0012" else load_airfoil("fx63137")
+    chord, (x0, y0, z0) = 0.5807, (1.234, 0.62, 0.008)
+    out = scale_airfoil(c, chord, 0.0, (x0, y0, z0))
+    assert out[:, 0] == pytest.approx(c[:, 0] * chord + x0, abs=1e-12)
+    assert out[:, 1] == pytest.approx(np.full(len(c), y0), abs=1e-12)
+    assert out[:, 2] == pytest.approx(c[:, 1] * chord + z0, abs=1e-12)
+
+
+@pytest.mark.parametrize("section", ["naca0012", "fx63137"])
+@pytest.mark.parametrize("twist_deg", _TWISTS_DEG)
+def test_section_area_equals_chord_squared_times_the_input_coordinate_area(
+        section, twist_deg):
+    """The absolute form of the area invariant: the placed section's enclosed
+    area must equal chord^2 times the enclosed area OF THE INPUT COORDINATES,
+    at every twist. Ties the output to the .dat file rather than to another
+    call of the same function, so a uniform rescale of z cannot cancel."""
+    c = naca4("0012") if section == "naca0012" else load_airfoil("fx63137")
+    chord = 0.5807
+    expected = _unit_shoelace(c) * chord ** 2
+    got = _enclosed_area_xz(
+        scale_airfoil(c, chord, np.deg2rad(twist_deg), (1.2, 0.62, 0.008)))
+    assert got == pytest.approx(expected, rel=1e-12)
+
+
+@pytest.mark.parametrize("twist_deg", _TWISTS_DEG)
+def test_section_thickness_survives_placement(twist_deg):
+    """The quantity the spar and the tank actually read. Measured normal to the
+    chord line (i.e. after rotating the placed section back by -twist), it must
+    be chord * t/c of the source coordinates, for every twist.
+
+    fx63137 measures 0.1371167 t/c; at the 0.5807 m chord used here that is
+    79.62 mm of section depth. A 2% thinning shows up as 78.03 mm."""
+    c = load_airfoil("fx63137")
+    chord, twist = 0.5807, np.deg2rad(twist_deg)
+    out = scale_airfoil(c, chord, twist, (1.2, 0.62, 0.008))
+    # undo the placement: translate to the LE, then rotate back by -twist
+    xz = out[:, [0, 2]] - out[int(np.argmin(c[:, 0])), [0, 2]]
+    ct, st = np.cos(twist), np.sin(twist)
+    unrot = np.column_stack([xz[:, 0] * ct - xz[:, 1] * st,
+                             xz[:, 0] * st + xz[:, 1] * ct])
+    assert max_thickness(unrot / chord) == pytest.approx(
+        max_thickness(c), rel=1e-9)

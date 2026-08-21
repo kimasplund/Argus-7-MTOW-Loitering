@@ -1,0 +1,67 @@
+[
+  {
+    "desc": "span 0.1% wrong",
+    "expect": "closure",
+    "caught": true
+  },
+  {
+    "desc": "MAC formula 2/3 -> 2/4",
+    "expect": "closure",
+    "caught": true
+  },
+  {
+    "desc": "closure tolerance loosened 1e8x",
+    "expect": "closure guard itself",
+    "caught": true
+  },
+  {
+    "desc": "twist rotation sign flipped (the bug that appeared twice)",
+    "expect": "washout tests",
+    "caught": true
+  },
+  {
+    "desc": "stall margin squared -> linear",
+    "expect": "loiter CL / endurance gates",
+    "caught": true
+  },
+  {
+    "desc": "drag 5% low",
+    "expect": "Breguet + report gates",
+    "caught": true
+  },
+  {
+    "desc": "Oswald factor dropped from polar",
+    "expect": "polar + endurance gates",
+    "caught": true
+  },
+  {
+    "desc": "ISA lapse rate 1.5% wrong",
+    "expect": "atmosphere table tests",
+    "caught": true
+  },
+  {
+    "desc": "spar allowable raised 33% (makes wings lighter for free)",
+    "expect": "mass model",
+    "caught": true
+  },
+  {
+    "desc": "the NACA-4 shape factor this project already caught once",
+    "expect": "fuel volume",
+    "caught": true
+  },
+  {
+    "desc": "fuel spanwise weighting exponent dropped (chord^2 -> chord) in fuel_centroid_x",
+    "expect": "fuel station / CG travel",
+    "caught": true
+  },
+  {
+    "desc": "downwash term (1 - de/da) dropped from the neutral-point tail term",
+    "expect": "neutral point + AVL cross-check",
+    "caught": true
+  },
+  {
+    "desc": "sign flipped in the LE->half-chord sweep conversion in lift_curve_slope_per_rad",
+    "expect": "lift-curve slopes / neutral point",
+    "caught": false
+  }
+]

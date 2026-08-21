@@ -1,0 +1,117 @@
+# ARGUS-7 v3.0 - FULL-LAYOUT OPTIMISED, STABILITY AS A HARD CONSTRAINT
+# 11 design variables including wing station, tail volume and tail arm.
+# Static margin required in [5%, 15%] MAC at BOTH full fuel and dry.
+# Verify with argus7.analysis.balance before quoting any stability number.
+name: ARGUS-7
+variant: v3.0-layout
+mission:
+  payload_mass_kg: 50.0
+  payload_power_w: 500.0
+  loiter_altitude_m: 4358.8
+wing:
+  area_m2: 5.9191
+  aspect_ratio: 21.4422
+  taper_ratio: 0.697
+  airfoil: FX63-137
+  twist_tip_deg: -3.0
+  dihedral_deg: 3.0
+  sweep_le_deg: 1.0
+  thickness_ratio: 0.1909
+  incidence_deg: 2.0
+  x_le_frac: 0.3536
+  z_offset_m: 0.008
+fuselage:
+  length_m: 3.4
+  max_diameter_m: 0.48
+  stations:
+  - - 0.0
+    - 0.15
+  - - 0.08
+    - 0.62
+  - - 0.22
+    - 1.0
+  - - 0.55
+    - 0.96
+  - - 0.8
+    - 0.7
+  - - 1.0
+    - 0.34
+booms:
+  diameter_m: 0.09
+  y_station_frac: 0.134
+  clearance_m: 0.15
+tail:
+  type: inverted_v
+  area_h_m2: 0.3698
+  arm_m: 3.5847
+  dihedral_deg: -42.0
+  taper_ratio: 0.55
+  airfoil: NACA0010
+  panel_aspect_ratio: 3.0
+propulsion:
+  engine_displacement_cc: 250.0
+  power_max_kw: 10.845
+  reduction_ratio: 3.947
+  prop_diameter_m: 1.04
+  prop_rpm: 1900.0
+  prop_blades: 2
+  prop_pitch_ratio: 0.95
+  prop_eta_loiter: 0.8581
+masses:
+  airframe: 73.39
+  powertrain: 15.95
+  avionics: 6.0
+  recovery: 7.0
+  payload: 50.0
+  fuel: 160.6
+  mtow: 312.93
+aero:
+  cd0: 0.01588
+  oswald_e: 0.8482
+  cl_max: 1.6
+provenance:
+  wing.area_m2: derived
+  wing.aspect_ratio: derived
+  wing.taper_ratio: derived
+  wing.airfoil: "report-\xA72"
+  wing.thickness_ratio: derived
+  wing.twist_tip_deg: assumption
+  wing.dihedral_deg: assumption
+  wing.sweep_le_deg: assumption
+  wing.incidence_deg: assumption
+  wing.x_le_frac: derived
+  wing.z_offset_m: assumption
+  fuselage.length_m: assumption
+  fuselage.max_diameter_m: assumption
+  fuselage.stations: assumption
+  booms.diameter_m: assumption
+  booms.y_station_frac: assumption
+  booms.clearance_m: assumption
+  tail.type: "report-\xA72"
+  tail.area_h_m2: derived
+  tail.arm_m: derived
+  tail.dihedral_deg: assumption
+  tail.taper_ratio: assumption
+  tail.airfoil: assumption
+  tail.panel_aspect_ratio: assumption
+  propulsion.engine_displacement_cc: "report-\xA72"
+  propulsion.power_max_kw: derived
+  propulsion.reduction_ratio: derived
+  propulsion.prop_diameter_m: derived
+  propulsion.prop_rpm: derived
+  masses.airframe: derived
+  masses.powertrain: derived
+  masses.avionics: "report-\xA73"
+  masses.recovery: "report-\xA73"
+  masses.payload: "report-\xA73"
+  masses.fuel: derived
+  masses.mtow: derived
+  mission.payload_mass_kg: "report-\xA71"
+  mission.payload_power_w: "report-\xA71"
+  mission.loiter_altitude_m: derived
+  aero.cd0: derived
+  aero.oswald_e: derived
+  aero.cl_max: "report-\xA74"
+  propulsion.prop_blades: derived
+  propulsion.prop_pitch_ratio: derived
+  propulsion.prop_eta_loiter: derived

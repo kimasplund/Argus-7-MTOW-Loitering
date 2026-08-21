@@ -1,0 +1,18 @@
+  [SKIP] span 0.1% wrong  (pattern not found)
+  [KILLED ] MAC formula 2/3 -> 2/4
+  [SURVIVED] closure tolerance loosened 1e8x
+  [SURVIVED] twist rotation sign flipped (the bug that appeared twice)
+  [KILLED ] stall margin squared -> linear
+  [KILLED ] drag 5% low
+  [KILLED ] Oswald factor dropped from polar
+  [SKIP] ISA lapse rate 1.5% wrong  (pattern not found)
+  [SURVIVED] spar allowable raised 33% (makes wings lighter for free)
+  [SURVIVED] the NACA-4 shape factor this project already caught once
+
+Mutation score: 4/8 killed (50%)
+
+SURVIVORS -- these are holes in the suite:
+  - closure tolerance loosened 1e8x   (expected to be caught by: closure guard itself)
+  - twist rotation sign flipped (the bug that appeared twice)   (expected to be caught by: washout tests)
+  - spar allowable raised 33% (makes wings lighter for free)   (expected to be caught by: mass model)
+  - the NACA-4 shape factor this project already caught once   (expected to be caught by: fuel volume)
