@@ -20,8 +20,17 @@ NAMES=["wing_area_m2","aspect_ratio","taper_ratio","thickness_ratio","mtow_kg",
 # regulatory bands. MTOW to 600 kg, taper to 1.0 (untapered allowed), wing area
 # to 12 m2, span limit relaxed 12 -> 20 m. Whatever binds is now information.
 LO=torch.tensor([2.5,12.0,0.25,0.10,150.0,4000.0,0.250, 3.0,0.10,0.30,0.50],device=dev)
-HI=torch.tensor([12.0,35.0,1.00,0.22,600.0,4500.0,0.320,40.0,0.75,1.60,2.00],device=dev)
-SM_LO, SM_HI = 0.05, 0.15
+HI=torch.tensor([12.0,35.0,1.00,0.22,320.0,4500.0,0.320,40.0,0.75,1.60,2.00],device=dev)
+# SPEC gate (docs/superpowers/specs/...design.md line 109) is 8% <= SM <= 20% MAC.
+# An earlier run used 5-15%, which is a pre-registered threshold moved without
+# noticing -- exactly what pre-registration exists to prevent. v3.0 landed at
+# +5.79% and duly FAILED the real gate.
+# The batched balance model here reads ~4.7% MAC HIGH against the authoritative
+# argus7.analysis.balance (it said 10.5% where the truth was 5.79%), so the
+# search window is offset to compensate. The winner is still verified against
+# the authoritative module -- this offset only steers the search.
+SM_BIAS = 0.047
+SM_LO, SM_HI = 0.08 + SM_BIAS, 0.20 + SM_BIAS
 
 def evaluate(x):
     S,AR,lam,tc,mtow,alt,bsfc_f,pkw,xle,Vh,arm_f = (x[...,i] for i in range(11))
@@ -53,7 +62,7 @@ def evaluate(x):
         recovery_kg=torch.full_like(S,7.),payload_kg=torch.full_like(S,50.))
 
     p_climb=climb_power_required_w(mtow,S,AR,cd0,e,clmax)
-    v = (torch.clamp(span-20.0,min=0.)/20.0
+    v = (torch.clamp(span-11.85,min=0.)/11.85
          + torch.clamp(fuel-tank,min=0.)/50.0
          + torch.clamp(-fuel,min=0.)/50.0
          + torch.clamp(p_climb-pkw*1000.,min=0.)/5000.0
@@ -106,5 +115,5 @@ for _ in range(12):
 with torch.no_grad(): xr=LO+torch.sigmoid(z)*(HI-LO)
 out["refined"]=describe(xr); torch.save(xr.cpu(),"design/opt_layout_refined.pt")
 print("REFINED:",json.dumps(out["refined"],indent=2),flush=True)
-json.dump(out,open("opt_runs/layout.json","w"),indent=2)
+json.dump(out,open("opt_runs/layout_final.json","w"),indent=2)
 print("WROTE opt_runs/layout.json",flush=True)
