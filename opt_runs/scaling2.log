@@ -6,3 +6,8 @@
    300 ->  6.74 d  MTOW  300.0  span 14.07  S  6.73  AR  29.4  kW  9.54  SM +11.0/ +8.0
    350 ->  7.73 d  MTOW  350.0  span 15.05  S  7.78  AR  29.1  kW 11.12  SM +14.2/ +6.2
    400 ->  7.80 d  MTOW  387.0  span 18.26  S 10.20  AR  32.7  kW 11.92  SM +13.2/+13.8
+   450 ->  9.24 d  MTOW  450.0  span 16.64  S  9.51  AR  29.1  kW 14.30  SM +11.8/ +8.1
+   500 ->  9.11 d  MTOW  492.5  span 17.41  S 10.23  AR  29.6  kW 15.74  SM +14.7/+12.9
+   550 -> 10.31 d  MTOW  549.6  span 17.84  S 11.16  AR  28.5  kW 17.58  SM +14.7/+11.4
+   600 ->  9.94 d  MTOW  558.0  span 16.93  S  9.64  AR  29.8  kW 18.49  SM +11.4/ +6.4
+WROTE opt_runs/mtow_scaling2.json
