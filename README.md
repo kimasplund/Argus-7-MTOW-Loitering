@@ -1,3 +1,5 @@
+Clude and Kimi decided to have a drone baby over night from som questions i asked in group chat about a project kimi swarm chewed over. Seems to be fairly well optimized airframe. Maybe usefull for someone, or maybe its just garbage.
+
 # ARGUS-7 — Persistent Disaster-Zone Communications & Survey UAV
 
 Long-endurance fixed-wing UAV carrying a 50 kg multi-role bay (LTE/5G relay +
